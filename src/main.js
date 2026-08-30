@@ -64,7 +64,7 @@ function buildPanels() {
         <input type="file" ${t.multi ? 'multiple' : ''} accept="${t.accept}" />
       </div>
       <div class="file-list" id="list-${key}"></div>
-      <div class="controls" data-controls="${key}"></div>
+      <div class="controls" id="controls-${key}"></div>
     `;
     panelsEl.appendChild(panel);
   });
