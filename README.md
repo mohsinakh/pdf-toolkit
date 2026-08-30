@@ -8,10 +8,17 @@ A 100% in-browser PDF and image toolkit. Merge, split, delete pages, compress im
 ## Features
 
 - **Merge PDF** — combine multiple PDFs into one
-- **Split PDF** — break a PDF into separate files
-- **Delete PDF pages** — remove unwanted pages
+- **Split PDF** — break a PDF into separate files or a page range
+- **Rotate PDF** — rotate all or selected pages by 90/180/270°
+- **Reorder PDF** — reverse pages or move the first/last page
+- **Extract Pages** — pull selected pages into a new PDF
+- **Delete pages** — remove unwanted pages
+- **Add Watermark** — stamp text like DRAFT or CONFIDENTIAL on every page
+- **Add Page Numbers** — print page numbers at the bottom of each page
+- **Images to PDF** — turn JPG/PNG images into one PDF
 - **Compress images** — shrink file sizes before sharing
-- **Convert images** — images to and from PDF
+- **Convert images** — images to and from PNG/JPEG/WebP
+- **PDF Info** — page count, file size and document metadata
 
 Everything runs locally in your browser, so it is fast, private, and free forever.
 
