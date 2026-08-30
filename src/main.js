@@ -46,6 +46,48 @@ const TOOLS = {
     accept: 'application/pdf',
     label: 'Choose a PDF',
   },
+  addBlank: {
+    title: 'Add Blank Pages',
+    desc: 'Insert one or more blank pages into your PDF.',
+    multi: false,
+    accept: 'application/pdf',
+    label: 'Choose a PDF',
+  },
+  duplicate: {
+    title: 'Duplicate Pages',
+    desc: 'Duplicate selected pages or the whole document.',
+    multi: false,
+    accept: 'application/pdf',
+    label: 'Choose a PDF',
+  },
+  removeBlank: {
+    title: 'Remove Blank Pages',
+    desc: 'Automatically detect and remove empty pages.',
+    multi: false,
+    accept: 'application/pdf',
+    label: 'Choose a PDF',
+  },
+  txtToPdf: {
+    title: 'TXT to PDF',
+    desc: 'Turn a plain text file into a clean PDF document.',
+    multi: false,
+    accept: 'text/plain,.txt',
+    label: 'Choose a TXT file',
+  },
+  metadata: {
+    title: 'Edit Metadata',
+    desc: 'View and change the title, author, subject and keywords of a PDF.',
+    multi: false,
+    accept: 'application/pdf',
+    label: 'Choose a PDF',
+  },
+  crop: {
+    title: 'Crop PDF',
+    desc: 'Trim the edges of every page (useful for removing white margins).',
+    multi: false,
+    accept: 'application/pdf',
+    label: 'Choose a PDF',
+  },
   watermark: {
     title: 'Add Watermark',
     desc: 'Stamp text like DRAFT or CONFIDENTIAL across every page.',
@@ -173,6 +215,60 @@ function buildControls(key) {
         <input type="text" id="delete-pages-${key}" placeholder="2,5,7" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:180px" />
       </label>`;
   }
+  if (key === 'addBlank') {
+    html += `
+      <label>Number of pages
+        <input type="number" id="addblank-count-${key}" min="1" value="1" />
+      </label>
+      <label>Insert after page
+        <input type="number" id="addblank-after-${key}" min="1" value="1" />
+      </label>`;
+  }
+  if (key === 'duplicate') {
+    html += `
+      <label>Pages to duplicate <small>(blank = all, e.g. 2,3 or 1-4)</small>
+        <input type="text" id="duplicate-pages-${key}" placeholder="all" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:160px" />
+      </label>
+      <label>Copies
+        <input type="number" id="duplicate-copies-${key}" min="1" value="1" />
+      </label>`;
+  }
+  if (key === 'crop') {
+    html += `
+      <label>Remove top (pt)
+        <input type="number" id="crop-top-${key}" min="0" max="500" value="20" />
+      </label>
+      <label>Right (pt)
+        <input type="number" id="crop-right-${key}" min="0" max="500" value="20" />
+      </label>
+      <label>Bottom (pt)
+        <input type="number" id="crop-bottom-${key}" min="0" max="500" value="20" />
+      </label>
+      <label>Left (pt)
+        <input type="number" id="crop-left-${key}" min="0" max="500" value="20" />
+      </label>`;
+  }
+  if (key === 'txtToPdf') {
+    html += `
+      <label>Page size
+        <select id="txttopdf-size-${key}">
+          <option value="a4">A4</option>
+          <option value="letter">Letter</option>
+        </select>
+      </label>
+      <label>Max width (chars)
+        <input type="number" id="txttopdf-width-${key}" min="20" max="200" value="100" />
+      </label>`;
+  }
+  if (key === 'metadata') {
+    html += `
+      <div class="meta-form">
+        <label>Title <input type="text" id="metadata-title-${key}" placeholder="Document title" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:220px" /></label>
+        <label>Author <input type="text" id="metadata-author-${key}" placeholder="Author" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:220px" /></label>
+        <label>Subject <input type="text" id="metadata-subject-${key}" placeholder="Subject" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:220px" /></label>
+        <label>Keywords <input type="text" id="metadata-keywords-${key}" placeholder="keyword1, keyword2" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:220px" /></label>
+      </div>`;
+  }
   if (key === 'watermark') {
     html += `
       <label>Text
@@ -279,6 +375,18 @@ function addFiles(key, list) {
   });
   renderList(key);
   resultEl.innerHTML = '';
+  if (key === 'metadata' && files[key].length) prefillMetadata(key, files[key][0]);
+}
+
+async function prefillMetadata(key, file) {
+  try {
+    const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    set(`metadata-title-${key}`, src.getTitle() || '');
+    set(`metadata-author-${key}`, src.getAuthor() || '');
+    set(`metadata-subject-${key}`, src.getSubject() || '');
+    set(`metadata-keywords-${key}`, src.getKeywords() || '');
+  } catch (e) { /* ignore */ }
 }
 
 // ---------- Formatting helpers ----------
@@ -495,6 +603,104 @@ async function pdfInfo(file) {
   };
 }
 
+async function addBlankPages(file, count, after) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const afterIdx = Math.min(Math.max(Number(after) || 1, 1), total) - 1;
+  const n = Math.max(Number(count) || 1, 1);
+  for (let i = 0; i < n; i++) {
+    src.insertPage(afterIdx + 1 + i, [595.28, 841.89]);
+  }
+  return src.save();
+}
+
+async function duplicatePagesT(file, spec, copies) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const indices = parsePageSpec(spec, total);
+  if (indices.length === 0) throw new Error('No valid pages to duplicate.');
+  const n = Math.max(Number(copies) || 1, 1);
+  const out = await PDFDocument.create();
+  for (let i = 0; i < total; i++) {
+    const [page] = await out.copyPages(src, [i]);
+    out.addPage(page);
+    if (indices.includes(i)) {
+      for (let c = 0; c < n; c++) {
+        const [dup] = await out.copyPages(src, [i]);
+        out.addPage(dup);
+      }
+    }
+  }
+  return out.save();
+}
+
+// A page is considered blank if it has no meaningful content streams.
+async function removeBlankPages(file) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const keep = [];
+  for (let i = 0; i < total; i++) {
+    const contents = src.getPage(i).node.Contents();
+    if (!contents) continue; // no content -> blank page, skip
+    let size = 0;
+    let entries = typeof contents.asArray === 'function' ? contents.asArray() : [contents];
+    for (const e of entries) {
+      const stream = src.context.lookup(e);
+      if (stream && typeof stream.getContents === 'function') {
+        const c = stream.getContents();
+        size += (c && c.length) || 0;
+      }
+    }
+    if (size >= 10) keep.push(i);
+  }
+  if (keep.length === total) throw new Error('No blank pages found.');
+  if (keep.length === 0) throw new Error('Document appears to have no content.');
+  const out = await clonePagesToNew(src, keep);
+  return { data: await out.save(), removed: total - keep.length, remaining: keep.length };
+}
+
+async function txtToPdf(file, sizeKey, maxWidth) {
+  const text = await file.text();
+  const out = await PDFDocument.create();
+  const helv = await out.embedFont(StandardFonts.Courier);
+  const width = sizeKey === 'letter' ? 612 : 595.28;
+  const height = sizeKey === 'letter' ? 792 : 841.89;
+  const charsPerLine = Math.max(Math.floor(width / 12) - 4, 20);
+  const lineHeight = 16;
+  const linesPerPage = Math.floor((height - 80) / lineHeight);
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  let page = out.addPage([width, height]);
+  let y = height - 56;
+  function drawLine(l) { page.drawText(l.slice(0, charsPerLine), { x: 48, y, size: 12, font: helv, color: rgb(0.1, 0.1, 0.1) }); y -= lineHeight; }
+  for (let li = 0; li < lines.length; li++) {
+    if (y < 56) { page = out.addPage([width, height]); y = height - 56; }
+    drawLine(lines[li].length ? lines[li] : ' ');
+  }
+  return out.save();
+}
+
+async function editMetadata(file, fields) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  if (fields.title) src.setTitle(fields.title);
+  if (fields.author) src.setAuthor(fields.author);
+  if (fields.subject) src.setSubject(fields.subject);
+  if (fields.keywords) src.setKeywords(fields.keywords.split(',').map((s) => s.trim()).filter(Boolean));
+  return src.save();
+}
+
+async function cropPDF(file, m) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  src.getPages().forEach((page) => {
+    const box = page.getMediaBox();
+    const l = Math.min(Number(m.left) || 0, box.width / 2 - 1);
+    const r = Math.min(Number(m.right) || 0, box.width / 2 - 1);
+    const t = Math.min(Number(m.top) || 0, box.height / 2 - 1);
+    const b = Math.min(Number(m.bottom) || 0, box.height / 2 - 1);
+    page.setCropBox(box.x + l, box.y + b, box.width - l - r, box.height - t - b);
+  });
+  return src.save();
+}
+
 // ---------- Runner ----------
 async function runTool(key) {
   const list = files[key] || [];
@@ -536,6 +742,48 @@ async function runTool(key) {
       const out = await deletePDFPages(list[0], pagesToDelete);
       triggerDownload(new Blob([out], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-edited.pdf');
       outItems = ['PDF updated without the selected page(s).'];
+    } else if (key === 'addBlank') {
+      const count = document.getElementById(`addblank-count-${key}`).value;
+      const after = document.getElementById(`addblank-after-${key}`).value;
+      const data = await addBlankPages(list[0], count, after);
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-with-blank-pages.pdf');
+      outItems = ['Added blank page(s) after page ' + after + '.'];
+    } else if (key === 'duplicate') {
+      const spec = document.getElementById(`duplicate-pages-${key}`).value;
+      const copies = document.getElementById(`duplicate-copies-${key}`).value;
+      const data = await duplicatePagesT(list[0], spec, copies);
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-duplicated.pdf');
+      outItems = ['Duplicated selected page(s).'];
+    } else if (key === 'removeBlank') {
+      const res = await removeBlankPages(list[0]);
+      triggerDownload(new Blob([res.data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-no-blank.pdf');
+      outItems = ['Removed ' + res.removed + ' blank page(s); ' + res.remaining + ' left.'];
+    } else if (key === 'txtToPdf') {
+      const sizeKey = document.getElementById(`txttopdf-size-${key}`).value;
+      const width = document.getElementById(`txttopdf-width-${key}`).value;
+      const data = await txtToPdf(list[0], sizeKey, width);
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace(/\.[^.]+$/, '') + '.pdf');
+      outItems = ['Converted text to a PDF.'];
+    } else if (key === 'metadata') {
+      const fields = {
+        title: document.getElementById(`metadata-title-${key}`).value,
+        author: document.getElementById(`metadata-author-${key}`).value,
+        subject: document.getElementById(`metadata-subject-${key}`).value,
+        keywords: document.getElementById(`metadata-keywords-${key}`).value,
+      };
+      const data = await editMetadata(list[0], fields);
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-meta.pdf');
+      outItems = ['Metadata updated.'];
+    } else if (key === 'crop') {
+      const m = {
+        top: document.getElementById(`crop-top-${key}`).value,
+        right: document.getElementById(`crop-right-${key}`).value,
+        bottom: document.getElementById(`crop-bottom-${key}`).value,
+        left: document.getElementById(`crop-left-${key}`).value,
+      };
+      const data = await cropPDF(list[0], m);
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-cropped.pdf');
+      outItems = ['Pages cropped.'];
     } else if (key === 'watermark') {
       const text = document.getElementById(`watermark-text-${key}`).value || 'DRAFT';
       const opacity = document.getElementById(`watermark-opacity-${key}`).value;

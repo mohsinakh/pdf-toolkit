@@ -13,11 +13,17 @@ A 100% in-browser PDF and image toolkit. Merge, split, delete pages, compress im
 - **Reorder PDF** — reverse pages or move the first/last page
 - **Extract Pages** — pull selected pages into a new PDF
 - **Delete pages** — remove unwanted pages
+- **Add Blank Pages** — insert blank pages into your document
+- **Duplicate Pages** — duplicate selected pages or the whole file
+- **Remove Blank Pages** — automatically strip empty pages
+- **Crop PDF** — trim the edges of every page
 - **Add Watermark** — stamp text like DRAFT or CONFIDENTIAL on every page
 - **Add Page Numbers** — print page numbers at the bottom of each page
+- **TXT to PDF** — turn plain text into a PDF
 - **Images to PDF** — turn JPG/PNG images into one PDF
 - **Compress images** — shrink file sizes before sharing
 - **Convert images** — images to and from PNG/JPEG/WebP
+- **Edit Metadata** — change title, author, subject and keywords
 - **PDF Info** — page count, file size and document metadata
 
 Everything runs locally in your browser, so it is fast, private, and free forever.
