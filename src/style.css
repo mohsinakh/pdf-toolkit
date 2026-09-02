@@ -12,6 +12,7 @@
   --err: #dc2626;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   font-family: 'Inter', system-ui, sans-serif;
   background: var(--bg);

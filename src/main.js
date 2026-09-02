@@ -117,6 +117,7 @@ function openTool(key) {
   controls.innerHTML = '';
   buildControls(key);
   hero.hidden = true;
+  grid.hidden = true;
   toolView.hidden = false;
   features.hidden = true;
   if (!hidingSearch) { search.value = ''; }
@@ -128,6 +129,7 @@ function goHome() {
   files = [];
   toolView.hidden = true;
   hero.hidden = false;
+  grid.hidden = false;
   features.hidden = false;
   renderGrid();
 }
