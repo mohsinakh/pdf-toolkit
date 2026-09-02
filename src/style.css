@@ -60,11 +60,26 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 48px; }
   text-align: left;
 }
 .tool-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(20,26,48,.08); border-color: var(--accent); }
+.tool-card { position: relative; }
 .tool-card .t-icon { font-size: 24px; }
 .tool-card .t-title { font-weight: 700; font-size: 15px; margin-top: 8px; }
 .tool-card .t-desc { color: var(--muted); font-size: 13px; margin-top: 4px; }
 .tool-card.disabled { opacity: .45; cursor: not-allowed; }
 .tool-card .soon { display: inline-block; margin-top: 8px; font-size: 11px; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+.tool-card .tip {
+  position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
+  width: 260px; max-width: 80vw; background: var(--ink); color: #fff; border-radius: 10px;
+  padding: 12px 14px; font-size: 13px; line-height: 1.5; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  opacity: 0; visibility: hidden; transition: opacity .15s, visibility .15s; z-index: 30; text-align: left;
+}
+.tool-card .tip strong { color: #fff; display: block; margin-bottom: 2px; }
+.tool-card:hover .tip { opacity: 1; visibility: visible; }
+
+.tool-view p.desc { color: var(--muted); font-size: 15px; margin-bottom: 18px; }
+.tool-view .how { display: block; margin-top: 10px; }
+.tool-view .how::before { content: 'How to use'; display: block; font-weight: 700; font-size: 13px; color: var(--ink); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+.how-steps { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.how-steps li { font-size: 14px; color: var(--ink); }
 
 .tool-view { max-width: 720px; margin: 0 auto; }
 .tool-view h2 { font-size: 24px; margin-bottom: 4px; }

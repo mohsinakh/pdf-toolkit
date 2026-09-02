@@ -20,36 +20,64 @@ const CATS = {
   image: 'Images',
 };
 
-// Category, icon, title, description, accept, multi, enabled, note
+// Category, icon, title, description, usage steps, accept, multi, enabled
 const TOOLS = {
-  merge:          { cat: 'organize', icon: '🔀', title: 'Merge PDF',      desc: 'Combine multiple PDFs into one.',             accept: 'application/pdf', multi: true,  enabled: true },
-  split:          { cat: 'organize', icon: '✂️', title: 'Split PDF',       desc: 'One page per file, or a page range.',         accept: 'application/pdf', multi: false, enabled: true },
-  reorder:        { cat: 'organize', icon: '↕️', title: 'Reorder PDF',     desc: 'Reverse pages or move first/last.',           accept: 'application/pdf', multi: false, enabled: true },
-  extract:        { cat: 'organize', icon: '📑', title: 'Extract Pages',   desc: 'Pull selected pages into a new PDF.',         accept: 'application/pdf', multi: false, enabled: true },
-  deletePages:    { cat: 'organize', icon: '🗑️', title: 'Delete Pages',    desc: 'Remove unwanted pages.',                      accept: 'application/pdf', multi: false, enabled: true },
-  insertBlank:    { cat: 'organize', icon: '➕', title: 'Insert Blank',    desc: 'Add blank pages after a page.',               accept: 'application/pdf', multi: false, enabled: true },
-  rotate:         { cat: 'edit',     icon: '🔄', title: 'Rotate PDF',      desc: 'Rotate pages by 90/180/270°.',                accept: 'application/pdf', multi: false, enabled: true },
-  crop:           { cat: 'edit',     icon: '🌿', title: 'Crop PDF',        desc: 'Trim margins of every page.',                 accept: 'application/pdf', multi: false, enabled: true },
-  watermark:      { cat: 'edit',     icon: '🏷️', title: 'Watermark',       desc: 'Stamp text on every page.',                   accept: 'application/pdf', multi: false, enabled: true },
-  pageNumbers:    { cat: 'edit',     icon: '🔢', title: 'Page Numbers',    desc: 'Add page numbers at the bottom.',             accept: 'application/pdf', multi: false, enabled: true },
-  duplicate:      { cat: 'edit',     icon: '📄🔁', title: 'Duplicate Pages', desc: 'Duplicate pages or the whole file.',         accept: 'application/pdf', multi: false, enabled: true },
-  flip:           { cat: 'edit',     icon: '🪞', title: 'Flip PDF',        desc: 'Mirror pages horizontally or vertically.',    accept: 'application/pdf', multi: false, enabled: true },
-  resize:         { cat: 'edit',     icon: '📐', title: 'Resize Pages',    desc: 'Change page size and add margins.',           accept: 'application/pdf', multi: false, enabled: true },
-  nup:            { cat: 'edit',     icon: '📇', title: 'N-up',            desc: 'Print multiple pages per sheet.',             accept: 'application/pdf', multi: false, enabled: true },
-  metadata:       { cat: 'edit',     icon: '🏷️', title: 'Edit Metadata',   desc: 'Change title, author, subject, keywords.',    accept: 'application/pdf', multi: false, enabled: true },
-  removeBlank:    { cat: 'optimize', icon: '🧽', title: 'Remove Blank',    desc: 'Automatically strip empty pages.',            accept: 'application/pdf', multi: false, enabled: true },
-  compress:       { cat: 'optimize', icon: '🗜️', title: 'Compress PDF',    desc: 'Reduce file size by re-rendering pages.',      accept: 'application/pdf', multi: false, enabled: true },
-  grayscale:      { cat: 'optimize', icon: '⚪', title: 'Grayscale',       desc: 'Make the document black & white.',             accept: 'application/pdf', multi: false, enabled: true },
-  flatten:        { cat: 'optimize', icon: '📋', title: 'Flatten Form',    desc: 'Make fillable forms read-only.',               accept: 'application/pdf', multi: false, enabled: true },
-  pdfToJpg:       { cat: 'convert',  icon: '🖼️', title: 'PDF to Images',   desc: 'Convert each page to JPG or PNG.',             accept: 'application/pdf', multi: false, enabled: true },
-  imagesToPdf:    { cat: 'convert',  icon: '📷', title: 'Images to PDF',   desc: 'Turn JPG/PNG images into a single PDF.',       accept: 'image/*',         multi: true,  enabled: true },
-  txtToPdf:       { cat: 'convert',  icon: '📝', title: 'TXT to PDF',      desc: 'Turn plain text into a PDF.',                  accept: 'text/plain,.txt', multi: false, enabled: true },
-  extractImages:  { cat: 'convert',  icon: '🖼️', title: 'Extract Images',  desc: 'Pull out all embedded images from a PDF.',     accept: 'application/pdf', multi: false, enabled: true },
-  protect:        { cat: 'security', icon: '🔒', title: 'Protect PDF',     desc: 'Encrypt with a password.',                     accept: 'application/pdf', multi: false, enabled: true },
-  unlock:         { cat: 'security', icon: '🔓', title: 'Unlock PDF',      desc: 'Remove a password (enter it below).',          accept: 'application/pdf', multi: false, enabled: true },
-  compressImage:  { cat: 'image',    icon: '📉', title: 'Compress Image',  desc: 'Shrink image file sizes.',                      accept: 'image/*',         multi: true,  enabled: true },
-  convertImage:   { cat: 'image',    icon: '🔄', title: 'Convert Image',   desc: 'Convert between PNG/JPEG/WebP.',               accept: 'image/*',         multi: true,  enabled: true },
-  info:           { cat: 'optimize', icon: 'ℹ️', title: 'PDF Info',        desc: 'Page count, size and metadata.',               accept: 'application/pdf', multi: false, enabled: true },
+  merge:          { cat: 'organize', icon: '🔀', title: 'Merge PDF',      desc: 'Combine multiple PDFs into one.',
+                    how: '1. Choose two or more PDF files (or drag and drop). 2. They are combined in the order you add them. 3. Click Run to download the merged document.', accept: 'application/pdf', multi: true,  enabled: true },
+  split:          { cat: 'organize', icon: '✂️', title: 'Split PDF',       desc: 'One page per file, or a page range.',
+                    how: '1. Choose a PDF. 2. Pick "One file per page" to split into separate single-page files, or "Only a range" and enter the from/to page numbers. 3. Click Run to download the file(s).', accept: 'application/pdf', multi: false, enabled: true },
+  reorder:        { cat: 'organize', icon: '↕️', title: 'Reorder PDF',     desc: 'Reverse pages or move first/last.',
+                    how: '1. Choose a PDF. 2. Select an action: reverse all pages, move the first page to the end, or move the last page to the front. 3. Click Run to download the reordered PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  extract:        { cat: 'organize', icon: '📑', title: 'Extract Pages',   desc: 'Pull selected pages into a new PDF.',
+                    how: '1. Choose a PDF. 2. Enter the pages to keep, e.g. 1-3,5,7-9 (or leave blank for all). 3. Click Run to download a new PDF with only those pages.', accept: 'application/pdf', multi: false, enabled: true },
+  deletePages:    { cat: 'organize', icon: '🗑️', title: 'Delete Pages',    desc: 'Remove unwanted pages.',
+                    how: '1. Choose a PDF. 2. Enter the page numbers to remove as a comma-separated list, e.g. 2,5,7. 3. Click Run to download the PDF without those pages.', accept: 'application/pdf', multi: false, enabled: true },
+  insertBlank:    { cat: 'organize', icon: '➕', title: 'Insert Blank',    desc: 'Add blank pages after a page.',
+                    how: '1. Choose a PDF. 2. Set how many blank pages to add and after which page number. 3. Click Run to download the PDF with the new blank pages.', accept: 'application/pdf', multi: false, enabled: true },
+  rotate:         { cat: 'edit',     icon: '🔄', title: 'Rotate PDF',      desc: 'Rotate pages by 90/180/270°.',
+                    how: '1. Choose a PDF. 2. Pick the rotation angle: 90°, 180°, or 270°. 3. Optionally limit to specific pages, e.g. 1,3 or 2-5 (blank = all). 4. Click Run to download.', accept: 'application/pdf', multi: false, enabled: true },
+  crop:           { cat: 'edit',     icon: '🌿', title: 'Crop PDF',        desc: 'Trim margins of every page.',
+                    how: '1. Choose a PDF. 2. Enter how many points to remove from the top, right, bottom, and left of every page. 3. Click Run to download the cropped PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  watermark:      { cat: 'edit',     icon: '🏷️', title: 'Watermark',       desc: 'Stamp text on every page.',
+                    how: '1. Choose a PDF. 2. Type the watermark text (e.g. DRAFT or CONFIDENTIAL). 3. Adjust opacity and size if needed. 4. Click Run to download the watermarked PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  pageNumbers:    { cat: 'edit',     icon: '🔢', title: 'Page Numbers',    desc: 'Add page numbers at the bottom.',
+                    how: '1. Choose a PDF. 2. Set the starting number and the position (bottom center or bottom right). 3. Click Run to download the numbered PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  duplicate:      { cat: 'edit',     icon: '📄🔁', title: 'Duplicate Pages', desc: 'Duplicate pages or the whole file.',
+                    how: '1. Choose a PDF. 2. Enter the pages to duplicate (blank = all) and the number of extra copies per page. 3. Click Run to download.', accept: 'application/pdf', multi: false, enabled: true },
+  flip:           { cat: 'edit',     icon: '🪞', title: 'Flip PDF',        desc: 'Mirror pages horizontally or vertically.',
+                    how: '1. Choose a PDF. 2. Pick horizontal (mirror) or vertical (upside down). 3. Click Run to download the flipped PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  resize:         { cat: 'edit',     icon: '📐', title: 'Resize Pages',    desc: 'Change page size and add margins.',
+                    how: '1. Choose a PDF. 2. Pick the new page size (A4, Letter, A5, A3, Legal). 3. Optionally add a margin in points. 4. Click Run to download.', accept: 'application/pdf', multi: false, enabled: true },
+  nup:            { cat: 'edit',     icon: '📇', title: 'N-up',            desc: 'Print multiple pages per sheet.',
+                    how: '1. Choose a PDF. 2. Pick 2, 4, or 6 pages per sheet. 3. Click Run to download the rearranged multi-up PDF, great for printing.', accept: 'application/pdf', multi: false, enabled: true },
+  metadata:       { cat: 'edit',     icon: '🏷️', title: 'Edit Metadata',   desc: 'Change title, author, subject, keywords.',
+                    how: '1. Choose a PDF (its current metadata is filled in automatically). 2. Edit the title, author, subject, and keywords fields. 3. Click Run to download the updated PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  removeBlank:    { cat: 'optimize', icon: '🧽', title: 'Remove Blank',    desc: 'Automatically strip empty pages.',
+                    how: '1. Choose a PDF. 2. Click Run — empty pages are detected and removed. 3. Download the cleaned PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  compress:       { cat: 'optimize', icon: '🗜️', title: 'Compress PDF',    desc: 'Reduce file size by re-rendering pages.',
+                    how: '1. Choose a PDF. 2. Lower the quality for smaller files (or raise it for better quality). 3. Optionally reduce the max pixel dimension. 4. Click Run to download a smaller PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  grayscale:      { cat: 'optimize', icon: '⚪', title: 'Grayscale',       desc: 'Make the document black & white.',
+                    how: '1. Choose a PDF. 2. Pick a conversion method (balanced is best for photos, average is simpler). 3. Click Run to download a grayscale PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  flatten:        { cat: 'optimize', icon: '📋', title: 'Flatten Form',    desc: 'Make fillable forms read-only.',
+                    how: '1. Choose a fillable PDF form. 2. Click Run to flatten it so the form fields become fixed content that others cannot edit.', accept: 'application/pdf', multi: false, enabled: true },
+  pdfToJpg:       { cat: 'convert',  icon: '🖼️', title: 'PDF to Images',   desc: 'Convert each page to JPG or PNG.',
+                    how: '1. Choose a PDF. 2. Pick the output format (JPG or PNG) and resolution. 3. Optionally limit to specific pages (blank = all). 4. Click Run to download the images (as a ZIP if more than one).', accept: 'application/pdf', multi: false, enabled: true },
+  imagesToPdf:    { cat: 'convert',  icon: '📷', title: 'Images to PDF',   desc: 'Turn JPG/PNG images into a single PDF.',
+                    how: '1. Choose one or more JPG/PNG images. 2. Click Run to combine them into a single PDF, one image per page.', accept: 'image/*',         multi: true,  enabled: true },
+  txtToPdf:       { cat: 'convert',  icon: '📝', title: 'TXT to PDF',      desc: 'Turn plain text into a PDF.',
+                    how: '1. Choose a .txt file. 2. Pick the page size (A4 or Letter) and max width. 3. Click Run to download the text as a PDF.', accept: 'text/plain,.txt', multi: false, enabled: true },
+  extractImages:  { cat: 'convert',  icon: '🖼️', title: 'Extract Images',  desc: 'Pull out all embedded images from a PDF.',
+                    how: '1. Choose a PDF containing images. 2. Click Run to extract every embedded image. 3. Download them (as a ZIP if more than one).', accept: 'application/pdf', multi: false, enabled: true },
+  protect:        { cat: 'security', icon: '🔒', title: 'Protect PDF',     desc: 'Encrypt with a password.',
+                    how: '1. Choose a PDF. 2. Enter and repeat a password. 3. Choose which permissions to allow (printing, copying, editing). 4. Click Run to download the encrypted PDF.', accept: 'application/pdf', multi: false, enabled: true },
+  unlock:         { cat: 'security', icon: '🔓', title: 'Unlock PDF',      desc: 'Remove a password (enter it below).',
+                    how: '1. Choose a password-protected PDF. 2. Enter the correct password. 3. Click Run to download an unlocked, unrestricted copy.', accept: 'application/pdf', multi: false, enabled: true },
+  compressImage:  { cat: 'image',    icon: '📉', title: 'Compress Image',  desc: 'Shrink image file sizes.',
+                    how: '1. Choose one or more images. 2. Adjust quality and max width. 3. Click Run to download smaller versions.', accept: 'image/*',         multi: true,  enabled: true },
+  convertImage:   { cat: 'image',    icon: '🔄', title: 'Convert Image',   desc: 'Convert between PNG/JPEG/WebP.',
+                    how: '1. Choose one or more images. 2. Pick the output format (PNG, JPEG, or WebP). 3. Click Run to download the converted images.', accept: 'image/*',         multi: true,  enabled: true },
+  info:           { cat: 'optimize', icon: 'ℹ️', title: 'PDF Info',        desc: 'Page count, size and metadata.',
+                    how: '1. Choose a PDF. 2. Click Run to view its page count, file size, title, author, subject, keywords, and creator.', accept: 'application/pdf', multi: false, enabled: true },
 };
 
 const el = (id) => document.getElementById(id);
@@ -96,7 +124,10 @@ function renderGrid(cat = '', query = '') {
       <div class="t-title">${t.title}</div>
       <div class="t-desc">${t.desc}</div>
       ${t.enabled ? '' : '<span class="soon">Requires a server</span>'}`;
-    card.title = t.title;
+    const tip = document.createElement('div');
+    tip.className = 'tip';
+    tip.innerHTML = `<strong>${t.title}:</strong> ${t.how || t.desc}`;
+    card.appendChild(tip);
     card.addEventListener('click', () => t.enabled && openTool(key));
     grid.appendChild(card);
   });
@@ -107,7 +138,7 @@ function openTool(key) {
   files = [];
   const t = TOOLS[key];
   toolTitle.textContent = t.title;
-  toolDesc.textContent = t.desc;
+  toolDesc.innerHTML = `${t.desc}<span class="how">${renderHow(t)}</span>`;
   el('dzIcon').textContent = t.icon;
   el('dzLabel').textContent = t.label || (t.multi ? 'Choose files' : 'Choose a PDF');
   fileInput.accept = t.accept;
@@ -312,6 +343,11 @@ function humanSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+function renderHow(t) {
+  if (!t.how) return '';
+  const steps = t.how.split(/\d+\.\s+/).filter(Boolean).map((s) => s.trim());
+  return `<ol class="how-steps">${steps.map((s) => `<li>${escapeHTML(s)}</li>`).join('')}</ol>`;
 }
 function triggerDownload(blob, name) {
   const url = URL.createObjectURL(blob);
