@@ -12,7 +12,11 @@
     "vite": "^8.2.2"
   },
   "dependencies": {
+    "@cantoo/pdf-lib": "^2.9.1",
     "browser-image-compression": "^2.0.2",
-    "pdf-lib": "^1.17.1"
+    "html-entities": "^2.6.0",
+    "jszip": "^3.10.1",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289"
   }
 }

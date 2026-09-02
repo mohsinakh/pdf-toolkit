@@ -1,395 +1,311 @@
 import './style.css';
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
 import imageCompression from 'browser-image-compression';
+import * as pdfjsLib from 'pdfjs-dist';
+import JSZip from 'jszip';
+import { PDFDocument as CantoDoc } from '@cantoo/pdf-lib';
 
-// ---------- Tool definitions ----------
-const TOOLS = {
-  merge: {
-    title: 'Merge PDFs',
-    desc: 'Combine multiple PDF files into one document.',
-    multi: true,
-    accept: 'application/pdf',
-    label: 'Choose PDF files',
-  },
-  split: {
-    title: 'Split PDF',
-    desc: 'Split a PDF into separate single-page files, or extract a page range.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  rotate: {
-    title: 'Rotate PDF',
-    desc: 'Rotate all pages (or only some) by 90, 180 or 270 degrees.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  reorder: {
-    title: 'Reorder PDF',
-    desc: 'Reverse the page order, or move the first/last page to the other end.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  extract: {
-    title: 'Extract Pages',
-    desc: 'Extract one or more pages into a brand-new PDF, e.g. 1-3,5,7-9.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  deletePages: {
-    title: 'Delete Pages',
-    desc: 'Remove one or more pages from a PDF.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  addBlank: {
-    title: 'Add Blank Pages',
-    desc: 'Insert one or more blank pages into your PDF.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  duplicate: {
-    title: 'Duplicate Pages',
-    desc: 'Duplicate selected pages or the whole document.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  removeBlank: {
-    title: 'Remove Blank Pages',
-    desc: 'Automatically detect and remove empty pages.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  txtToPdf: {
-    title: 'TXT to PDF',
-    desc: 'Turn a plain text file into a clean PDF document.',
-    multi: false,
-    accept: 'text/plain,.txt',
-    label: 'Choose a TXT file',
-  },
-  metadata: {
-    title: 'Edit Metadata',
-    desc: 'View and change the title, author, subject and keywords of a PDF.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  crop: {
-    title: 'Crop PDF',
-    desc: 'Trim the edges of every page (useful for removing white margins).',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  watermark: {
-    title: 'Add Watermark',
-    desc: 'Stamp text like DRAFT or CONFIDENTIAL across every page.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  pageNumbers: {
-    title: 'Add Page Numbers',
-    desc: 'Print a page number at the bottom of every page.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
-  imagesToPdf: {
-    title: 'Images to PDF',
-    desc: 'Turn your JPG/PNG images into a single PDF document.',
-    multi: true,
-    accept: 'image/*',
-    label: 'Choose images',
-  },
-  compress: {
-    title: 'Compress Image',
-    desc: 'Reduce image file size while keeping good quality. Fully offline.',
-    multi: true,
-    accept: 'image/*',
-    label: 'Choose images',
-  },
-  convert: {
-    title: 'Convert Image Format',
-    desc: 'Convert images between PNG, JPEG and WebP formats.',
-    multi: true,
-    accept: 'image/*',
-    label: 'Choose images',
-  },
-  info: {
-    title: 'PDF Info',
-    desc: 'See page count, file size and document metadata without installing anything.',
-    multi: false,
-    accept: 'application/pdf',
-    label: 'Choose a PDF',
-  },
+// pdfjs worker (served as a static asset by Vite)
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
+const CATS = {
+  organize: 'Organize',
+  optimize: 'Optimize',
+  convert: 'Convert',
+  edit: 'Edit',
+  security: 'Security',
+  image: 'Images',
 };
 
-let currentTool = 'merge';
-const files = {};
+// Category, icon, title, description, accept, multi, enabled, note
+const TOOLS = {
+  merge:          { cat: 'organize', icon: '🔀', title: 'Merge PDF',      desc: 'Combine multiple PDFs into one.',             accept: 'application/pdf', multi: true,  enabled: true },
+  split:          { cat: 'organize', icon: '✂️', title: 'Split PDF',       desc: 'One page per file, or a page range.',         accept: 'application/pdf', multi: false, enabled: true },
+  reorder:        { cat: 'organize', icon: '↕️', title: 'Reorder PDF',     desc: 'Reverse pages or move first/last.',           accept: 'application/pdf', multi: false, enabled: true },
+  extract:        { cat: 'organize', icon: '📑', title: 'Extract Pages',   desc: 'Pull selected pages into a new PDF.',         accept: 'application/pdf', multi: false, enabled: true },
+  deletePages:    { cat: 'organize', icon: '🗑️', title: 'Delete Pages',    desc: 'Remove unwanted pages.',                      accept: 'application/pdf', multi: false, enabled: true },
+  insertBlank:    { cat: 'organize', icon: '➕', title: 'Insert Blank',    desc: 'Add blank pages after a page.',               accept: 'application/pdf', multi: false, enabled: true },
+  rotate:         { cat: 'edit',     icon: '🔄', title: 'Rotate PDF',      desc: 'Rotate pages by 90/180/270°.',                accept: 'application/pdf', multi: false, enabled: true },
+  crop:           { cat: 'edit',     icon: '🌿', title: 'Crop PDF',        desc: 'Trim margins of every page.',                 accept: 'application/pdf', multi: false, enabled: true },
+  watermark:      { cat: 'edit',     icon: '🏷️', title: 'Watermark',       desc: 'Stamp text on every page.',                   accept: 'application/pdf', multi: false, enabled: true },
+  pageNumbers:    { cat: 'edit',     icon: '🔢', title: 'Page Numbers',    desc: 'Add page numbers at the bottom.',             accept: 'application/pdf', multi: false, enabled: true },
+  duplicate:      { cat: 'edit',     icon: '📄🔁', title: 'Duplicate Pages', desc: 'Duplicate pages or the whole file.',         accept: 'application/pdf', multi: false, enabled: true },
+  flip:           { cat: 'edit',     icon: '🪞', title: 'Flip PDF',        desc: 'Mirror pages horizontally or vertically.',    accept: 'application/pdf', multi: false, enabled: true },
+  resize:         { cat: 'edit',     icon: '📐', title: 'Resize Pages',    desc: 'Change page size and add margins.',           accept: 'application/pdf', multi: false, enabled: true },
+  nup:            { cat: 'edit',     icon: '📇', title: 'N-up',            desc: 'Print multiple pages per sheet.',             accept: 'application/pdf', multi: false, enabled: true },
+  metadata:       { cat: 'edit',     icon: '🏷️', title: 'Edit Metadata',   desc: 'Change title, author, subject, keywords.',    accept: 'application/pdf', multi: false, enabled: true },
+  removeBlank:    { cat: 'optimize', icon: '🧽', title: 'Remove Blank',    desc: 'Automatically strip empty pages.',            accept: 'application/pdf', multi: false, enabled: true },
+  compress:       { cat: 'optimize', icon: '🗜️', title: 'Compress PDF',    desc: 'Reduce file size by re-rendering pages.',      accept: 'application/pdf', multi: false, enabled: true },
+  grayscale:      { cat: 'optimize', icon: '⚪', title: 'Grayscale',       desc: 'Make the document black & white.',             accept: 'application/pdf', multi: false, enabled: true },
+  flatten:        { cat: 'optimize', icon: '📋', title: 'Flatten Form',    desc: 'Make fillable forms read-only.',               accept: 'application/pdf', multi: false, enabled: true },
+  pdfToJpg:       { cat: 'convert',  icon: '🖼️', title: 'PDF to Images',   desc: 'Convert each page to JPG or PNG.',             accept: 'application/pdf', multi: false, enabled: true },
+  imagesToPdf:    { cat: 'convert',  icon: '📷', title: 'Images to PDF',   desc: 'Turn JPG/PNG images into a single PDF.',       accept: 'image/*',         multi: true,  enabled: true },
+  txtToPdf:       { cat: 'convert',  icon: '📝', title: 'TXT to PDF',      desc: 'Turn plain text into a PDF.',                  accept: 'text/plain,.txt', multi: false, enabled: true },
+  extractImages:  { cat: 'convert',  icon: '🖼️', title: 'Extract Images',  desc: 'Pull out all embedded images from a PDF.',     accept: 'application/pdf', multi: false, enabled: true },
+  protect:        { cat: 'security', icon: '🔒', title: 'Protect PDF',     desc: 'Encrypt with a password.',                     accept: 'application/pdf', multi: false, enabled: true },
+  unlock:         { cat: 'security', icon: '🔓', title: 'Unlock PDF',      desc: 'Remove a password (enter it below).',          accept: 'application/pdf', multi: false, enabled: true },
+  compressImage:  { cat: 'image',    icon: '📉', title: 'Compress Image',  desc: 'Shrink image file sizes.',                      accept: 'image/*',         multi: true,  enabled: true },
+  convertImage:   { cat: 'image',    icon: '🔄', title: 'Convert Image',   desc: 'Convert between PNG/JPEG/WebP.',               accept: 'image/*',         multi: true,  enabled: true },
+  info:           { cat: 'optimize', icon: 'ℹ️', title: 'PDF Info',        desc: 'Page count, size and metadata.',               accept: 'application/pdf', multi: false, enabled: true },
+};
 
-const panelsEl = document.getElementById('panels');
-const resultEl = document.getElementById('result');
-const tabsEl = document.getElementById('tabs');
+const el = (id) => document.getElementById(id);
+const hero = el('hero');
+const grid = el('grid');
+const cats = el('cats');
+const search = el('search');
+const toolView = el('toolView');
+const features = el('features');
+const dropzone = el('dropzone');
+const fileInput = el('fileInput');
+const fileList = el('fileList');
+const controls = el('controls');
+const result = el('result');
+const toolTitle = el('toolTitle');
+const toolDesc = el('toolDesc');
 
-function buildPanels() {
-  panelsEl.innerHTML = '';
-  Object.keys(TOOLS).forEach((key) => {
-    const t = TOOLS[key];
-    const panel = document.createElement('div');
-    panel.className = `panel${key === currentTool ? ' active' : ''}`;
-    panel.id = `panel-${key}`;
-    panel.innerHTML = `
-      <h2>${t.title}</h2>
-      <p class="desc">${t.desc}</p>
-      <div class="dropzone" data-tool="${key}">
-        <p>📁 <strong>${t.label}</strong></p>
-        <p style="font-size:13px;margin-top:6px">or drag &amp; drop ${t.multi ? 'files' : 'a file'} here</p>
-        <input type="file" ${t.multi ? 'multiple' : ''} accept="${t.accept}" />
-      </div>
-      <div class="file-list" id="list-${key}"></div>
-      <div class="controls" id="controls-${key}"></div>
-    `;
-    panelsEl.appendChild(panel);
+let currentTool = null;
+let files = [];
+let hidingSearch = false;
+
+// ---------- Grid / navigation ----------
+function renderCats() {
+  cats.innerHTML = `<button class="cat active" data-cat="">All</button>` +
+    Object.entries(CATS).map(([k, v]) => `<button class="cat" data-cat="${k}">${v}</button>`).join('');
+  cats.addEventListener('click', (e) => {
+    const btn = e.target.closest('.cat');
+    if (!btn) return;
+    cats.querySelectorAll('.cat').forEach((c) => c.classList.toggle('active', c === btn));
+    renderGrid(btn.dataset.cat, search.value);
   });
 }
 
-function buildControls(key) {
-  const c = document.getElementById(`controls-${key}`);
+function renderGrid(cat = '', query = '') {
+  const q = query.trim().toLowerCase();
+  grid.innerHTML = '';
+  Object.entries(TOOLS).forEach(([key, t]) => {
+    if (cat && t.cat !== cat) return;
+    if (q && !(`${t.title} ${t.desc}`).toLowerCase().includes(q)) return;
+    const card = document.createElement('article');
+    card.className = 'tool-card' + (t.enabled ? '' : ' disabled');
+    card.innerHTML = `
+      <div class="t-icon">${t.icon}</div>
+      <div class="t-title">${t.title}</div>
+      <div class="t-desc">${t.desc}</div>
+      ${t.enabled ? '' : '<span class="soon">Requires a server</span>'}`;
+    card.title = t.title;
+    card.addEventListener('click', () => t.enabled && openTool(key));
+    grid.appendChild(card);
+  });
+}
+
+function openTool(key) {
+  currentTool = key;
+  files = [];
   const t = TOOLS[key];
+  toolTitle.textContent = t.title;
+  toolDesc.textContent = t.desc;
+  el('dzIcon').textContent = t.icon;
+  el('dzLabel').textContent = t.label || (t.multi ? 'Choose files' : 'Choose a PDF');
+  fileInput.accept = t.accept;
+  fileInput.multiple = t.multi;
+  fileList.innerHTML = '';
+  result.innerHTML = '';
+  controls.innerHTML = '';
+  buildControls(key);
+  hero.hidden = true;
+  toolView.hidden = false;
+  features.hidden = true;
+  if (!hidingSearch) { search.value = ''; }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goHome() {
+  currentTool = null;
+  files = [];
+  toolView.hidden = true;
+  hero.hidden = false;
+  features.hidden = false;
+  renderGrid();
+}
+
+// ---------- File handling ----------
+function addFiles(list) {
+  const t = TOOLS[currentTool];
+  if (!t.multi) list = list.slice(0, 1);
+  list.forEach((f) => {
+    if (!t.multi) files = [];
+    files.push(f);
+  });
+  renderFileList();
+  result.innerHTML = '';
+  if (currentTool === 'metadata' && files.length) prefillMetadata(files[0]);
+}
+
+function renderFileList() {
+  fileList.innerHTML = files
+    .map((f, i) => `
+      <div class="file-row">
+        <span class="name">${escapeHTML(f.name)}</span>
+        <span class="size">${humanSize(f.size)}</span>
+        <button class="remove" data-i="${i}">✕</button>
+      </div>`)
+    .join('');
+  fileList.querySelectorAll('.remove').forEach((b) =>
+    b.addEventListener('click', () => { files.splice(Number(b.dataset.i), 1); renderFileList(); result.innerHTML = ''; })
+  );
+  const run = el('runBtn');
+  if (run) run.disabled = files.length === 0;
+}
+
+function escapeHTML(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// ---------- Build per-tool controls ----------
+function buildControls(key) {
   let html = '';
   if (key === 'split') {
-    html += `
-      <label>Split mode
-        <select id="split-mode-${key}">
-          <option value="all">One file per page</option>
-          <option value="range">Only a page range</option>
-        </select>
-      </label>
-      <label class="range-only" style="display:none">From page
-        <input type="number" id="split-from-${key}" min="1" value="1" />
-      </label>
-      <label class="range-only" style="display:none">To page
-        <input type="number" id="split-to-${key}" min="1" value="1" />
-      </label>`;
+    html += optionBlock('split', 'Splitmode', [['all', 'One file per page'], ['range', 'Only a range']], 'all') +
+      `<label class="blk-range" style="display:none">From page <input type="number" id="splitFrom" min="1" value="1"/></label>` +
+      `<label class="blk-range" style="display:none">To page <input type="number" id="splitTo" min="1" value="1"/></label>`;
   }
   if (key === 'rotate') {
-    html += `
-      <label>Rotation
-        <select id="rotate-angle-${key}">
-          <option value="90">90° clockwise</option>
-          <option value="180">180°</option>
-          <option value="270">270° clockwise (90° counter)</option>
-        </select>
-      </label>
-      <label>Pages <small>(blank = all, e.g. 1,3 or 2-5)</small>
-        <input type="text" id="rotate-pages-${key}" placeholder="all" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:160px" />
-      </label>`;
+    html += optionBlock('rotate', 'Rotation', [['90', '90° clockwise'], ['180', '180°'], ['270', '270° (90° counter)']], '90') +
+      `<label>Pages <small>(blank = all, e.g. 1,3 or 2-5)</small><input type="text" id="pages" placeholder="all"/></label>`;
   }
   if (key === 'reorder') {
-    html += `
-      <label>Action
-        <select id="reorder-action-${key}">
-          <option value="reverse">Reverse all pages</option>
-          <option value="first">Move first page to the end</option>
-          <option value="last">Move last page to the front</option>
-        </select>
-      </label>`;
+    html += optionBlock('reorder', 'Action', [['reverse', 'Reverse all pages'], ['first', 'Move first page to the end'], ['last', 'Move last page to the front']], 'reverse');
   }
   if (key === 'extract') {
-    html += `
-      <label>Pages to extract <small>(e.g. 1-3,5,7-9)</small>
-        <input type="text" id="extract-pages-${key}" placeholder="1-3" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:160px" />
-      </label>`;
+    html += `<label>Pages to extract <small>(e.g. 1-3,5,7-9)</small><input type="text" id="pages" placeholder="1-3"/></label>`;
   }
   if (key === 'deletePages') {
-    html += `
-      <label>Pages to delete <small>(comma-separated, e.g. 2,5,7)</small>
-        <input type="text" id="delete-pages-${key}" placeholder="2,5,7" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:180px" />
-      </label>`;
+    html += `<label>Pages to delete <small>(comma-separated, e.g. 2,5,7)</small><input type="text" id="delPages" placeholder="2,5,7"/></label>`;
   }
-  if (key === 'addBlank') {
-    html += `
-      <label>Number of pages
-        <input type="number" id="addblank-count-${key}" min="1" value="1" />
-      </label>
-      <label>Insert after page
-        <input type="number" id="addblank-after-${key}" min="1" value="1" />
-      </label>`;
+  if (key === 'insertBlank') {
+    html += `<label>Number of blank pages <input type="number" id="blankCount" min="1" value="1"/></label>` +
+      `<label>Insert after page <input type="number" id="blankAfter" min="1" value="1"/></label>`;
   }
   if (key === 'duplicate') {
-    html += `
-      <label>Pages to duplicate <small>(blank = all, e.g. 2,3 or 1-4)</small>
-        <input type="text" id="duplicate-pages-${key}" placeholder="all" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:160px" />
-      </label>
-      <label>Copies
-        <input type="number" id="duplicate-copies-${key}" min="1" value="1" />
-      </label>`;
+    html += `<label>Pages to duplicate <small>(blank = all)</small><input type="text" id="pages" placeholder="all"/></label>` +
+      `<label>Copies <input type="number" id="copyCount" min="1" value="1"/></label>`;
   }
   if (key === 'crop') {
-    html += `
-      <label>Remove top (pt)
-        <input type="number" id="crop-top-${key}" min="0" max="500" value="20" />
-      </label>
-      <label>Right (pt)
-        <input type="number" id="crop-right-${key}" min="0" max="500" value="20" />
-      </label>
-      <label>Bottom (pt)
-        <input type="number" id="crop-bottom-${key}" min="0" max="500" value="20" />
-      </label>
-      <label>Left (pt)
-        <input type="number" id="crop-left-${key}" min="0" max="500" value="20" />
-      </label>`;
-  }
-  if (key === 'txtToPdf') {
-    html += `
-      <label>Page size
-        <select id="txttopdf-size-${key}">
-          <option value="a4">A4</option>
-          <option value="letter">Letter</option>
-        </select>
-      </label>
-      <label>Max width (chars)
-        <input type="number" id="txttopdf-width-${key}" min="20" max="200" value="100" />
-      </label>`;
-  }
-  if (key === 'metadata') {
-    html += `
-      <div class="meta-form">
-        <label>Title <input type="text" id="metadata-title-${key}" placeholder="Document title" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:220px" /></label>
-        <label>Author <input type="text" id="metadata-author-${key}" placeholder="Author" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:220px" /></label>
-        <label>Subject <input type="text" id="metadata-subject-${key}" placeholder="Subject" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:220px" /></label>
-        <label>Keywords <input type="text" id="metadata-keywords-${key}" placeholder="keyword1, keyword2" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:220px" /></label>
-      </div>`;
+    html += `<label>Top (pt) <input type="number" id="top" min="0" value="20"/></label>` +
+      `<label>Right (pt) <input type="number" id="right" min="0" value="20"/></label>` +
+      `<label>Bottom (pt) <input type="number" id="bottom" min="0" value="20"/></label>` +
+      `<label>Left (pt) <input type="number" id="left" min="0" value="20"/></label>`;
   }
   if (key === 'watermark') {
-    html += `
-      <label>Text
-        <input type="text" id="watermark-text-${key}" value="DRAFT" style="background:var(--card2);border:1px solid var(--border);color:var(--ink);padding:8px 10px;border-radius:8px;min-width:140px" />
-      </label>
-      <label>Opacity <small>(0–1)</small>
-        <input type="number" id="watermark-opacity-${key}" min="0.05" max="1" step="0.05" value="0.3" />
-      </label>
-      <label>Size
-        <input type="number" id="watermark-size-${key}" min="10" max="200" value="60" />
-      </label>`;
+    html += `<label>Text <input type="text" id="wmText" value="DRAFT"/></label>` +
+      `<label>Opacity <small>(0–1)</small><input type="number" id="wmOpacity" min="0.05" max="1" step="0.05" value="0.3"/></label>` +
+      `<label>Size <input type="number" id="wmSize" min="10" max="200" value="60"/></label>`;
   }
   if (key === 'pageNumbers') {
-    html += `
-      <label>Start from
-        <input type="number" id="pagenum-start-${key}" min="1" value="1" />
-      </label>
-      <label>Position
-        <select id="pagenum-pos-${key}">
-          <option value="bottom">Bottom center</option>
-          <option value="bottom-right">Bottom right</option>
-        </select>
-      </label>`;
+    html += `<label>Start number <input type="number" id="pnStart" min="1" value="1"/></label>` +
+      optionBlock('pnPos', 'Position', [['bottom', 'Bottom center'], ['bottom-right', 'Bottom right']], 'bottom');
+  }
+  if (key === 'flip') {
+    html += optionBlock('flip', 'Direction', [['horizontal', 'Horizontal (mirror)'], ['vertical', 'Vertical (upside down)']], 'horizontal');
+  }
+  if (key === 'resize') {
+    html += `<label>Page size ${sizeSel('resizeSize')}</label>` +
+      `<label>Margin (pt) <input type="number" id="margin" min="0" value="0"/></label>`;
+  }
+  if (key === 'nup') {
+    html += optionBlock('nup', 'Pages per sheet', [['2', '2 per sheet'], ['4', '4 per sheet'], ['6', '6 per sheet']], '4');
+  }
+  if (key === 'metadata') {
+    html = `<div class="meta-form">
+      <label>Title <input type="text" id="metaTitle"/></label>
+      <label>Author <input type="text" id="metaAuthor"/></label>
+      <label>Subject <input type="text" id="metaSubject"/></label>
+      <label>Keywords <input type="text" id="metaKeywords" placeholder="k1, k2"/></label>
+    </div>`;
   }
   if (key === 'compress') {
-    html += `
-      <label>Quality
-        <input type="number" id="compress-quality-${key}" min="0.1" max="1" step="0.05" value="0.7" />
-      </label>
-      <label>Max width (px)
-        <input type="number" id="compress-width-${key}" min="100" value="1920" />
-      </label>`;
+    html += `<label>Quality <input type="number" id="cq" min="0.1" max="1" step="0.05" value="0.6"/></label>` +
+      `<label>Max dimension (px) <input type="number" id="cDim" min="200" value="1400"/></label>`;
   }
-  if (key === 'convert') {
-    html += `
-      <label>Output format
-        <select id="convert-format-${key}">
-          <option value="image/png">PNG</option>
-          <option value="image/jpeg">JPEG</option>
-          <option value="image/webp">WebP</option>
-        </select>
-      </label>`;
+  if (key === 'grayscale') {
+    html += `<label>Method ${optionSel('gs', [['luminance', 'Balanced (photographic)'], ['average', 'Simple average']], 0)}</label>`;
   }
-  html += `<button class="btn" id="run-${key}" disabled>Run</button>`;
-  c.innerHTML = html;
-
-  const modeSel = document.getElementById(`split-mode-${key}`);
-  if (modeSel) {
-    modeSel.addEventListener('change', () => {
-      document.querySelectorAll(`#panel-${key} .range-only`).forEach((el) => {
-        el.style.display = modeSel.value === 'range' ? 'flex' : 'none';
-      });
-    });
+  if (key === 'pdfToJpg') {
+    html += optionBlock('fmt', 'Output format', [['image/jpeg', 'JPG'], ['image/png', 'PNG']], 'image/jpeg') +
+      `<label>Resolution ${optionSel('pdfRes', [['1.5', 'Standard (~110 DPI)'], ['2.5', 'High (~180 DPI)'], ['4', 'Very high (~290 DPI)']], 0)}</label>` +
+      `<label>Pages <small>(blank = all)</small><input type="text" id="pages" placeholder="all"/></label>`;
   }
-  document.getElementById(`run-${key}`).addEventListener('click', () => runTool(key));
-}
+  if (key === 'txtToPdf') {
+    html += optionBlock('txtSize', 'Page size', [['a4', 'A4'], ['letter', 'Letter']], 'a4') +
+      `<label>Max width (chars) <input type="number" id="txtW" min="20" max="200" value="100"/></label>`;
+  }
+  if (key === 'protect') {
+    html += `<label>Password <input type="password" id="pw" placeholder="Password"/></label>` +
+      `<label>Repeat password <input type="password" id="pw2" placeholder="Repeat password"/></label>` +
+      `<div class="checklist">
+        <label><input type="checkbox" id="perPrint" checked/> Allow printing</label>
+        <label><input type="checkbox" id="perCopy" checked/> Allow copying text</label>
+        <label><input type="checkbox" id="perMod" checked/> Allow editing</label>
+      </div>`;
+  }
+  if (key === 'unlock') {
+    html += `<label>Password <input type="password" id="pw" placeholder="PDF password (if any)"/></label>`;
+  }
+  if (key === 'compressImage') {
+    html += `<label>Quality <input type="number" id="imgQ" min="0.1" max="1" step="0.05" value="0.7"/></label>` +
+      `<label>Max width (px) <input type="number" id="imgW" min="100" value="1920"/></label>`;
+  }
+  if (key === 'convertImage') {
+    html += optionBlock('imgFmt', 'Output format', [['image/png', 'PNG'], ['image/jpeg', 'JPEG'], ['image/webp', 'WebP']], 'image/png');
+  }
+  html += `<button class="btn" id="runBtn" disabled>Run</button>`;
+  controls.innerHTML = html;
 
-function renderList(key) {
-  const list = document.getElementById(`list-${key}`);
-  const runBtn = document.getElementById(`run-${key}`);
-  const arr = files[key] || [];
-  list.innerHTML = arr
-    .map(
-      (f, i) => `
-      <div class="file-row">
-        <span class="name">${f.name}</span>
-        <span class="size">${(f.size / 1024 / 1024).toFixed(2)} MB</span>
-        <button class="remove" data-key="${key}" data-i="${i}">✕</button>
-      </div>`
-    )
-    .join('');
-  runBtn.disabled = arr.length === 0;
-  list.querySelectorAll('.remove').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      files[key].splice(Number(btn.dataset.i), 1);
-      renderList(key);
-    });
+  const splitSel = el('split');
+  if (splitSel) splitSel.addEventListener('change', () => {
+    document.querySelectorAll('.blk-range').forEach((x) => (x.style.display = splitSel.value === 'range' ? 'flex' : 'none'));
   });
+  el('runBtn').addEventListener('click', runTool);
 }
 
-function setupDropzones() {
-  document.querySelectorAll('.dropzone').forEach((drop) => {
-    const key = drop.dataset.tool;
-    const input = drop.querySelector('input[type=file]');
-    drop.addEventListener('click', () => input.click());
-    input.addEventListener('change', () => addFiles(key, [...input.files]));
-    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag'); });
-    drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
-    drop.addEventListener('drop', (e) => {
-      e.preventDefault();
-      drop.classList.remove('drag');
-      addFiles(key, [...e.dataTransfer.files]);
-    });
-  });
+function optionBlock(id, label, opts, def) {
+  return `<label>${label} ${optionSel(id, opts, def)}</label>`;
+}
+function optionSel(id, opts, defIdx) {
+  return `<select id="${id}">${opts.map(([v, l], i) => `<option value="${v}"${i === defIdx ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+}
+function sizeSel(id) {
+  const sizes = [['A4', 595.28, 841.89], ['Letter', 612, 792], ['A5', 419.53, 595.28], ['A3', 841.89, 1190.55], ['Legal', 612, 1008]];
+  return `<select id="${id}">${sizes.map(([n]) => `<option value="${n}">${n}</option>`).join('')}</select>`;
+}
+function standardWH(name) {
+  return { A4: [595.28, 841.89], Letter: [612, 792], A5: [419.53, 595.28], A3: [841.89, 1190.55], Legal: [612, 1008] }[name] || [595.28, 841.89];
 }
 
-function addFiles(key, list) {
-  const t = TOOLS[key];
-  if (!t.multi && list.length > 1) list = [list[0]];
-  files[key] = [...(files[key] || [])];
-  list.forEach((f) => {
-    if (!t.multi) files[key] = [];
-    files[key].push(f);
-  });
-  renderList(key);
-  resultEl.innerHTML = '';
-  if (key === 'metadata' && files[key].length) prefillMetadata(key, files[key][0]);
-}
-
-async function prefillMetadata(key, file) {
+// ---------- pdfjs rendering helper ----------
+async function withPdfjs(bytes, fn, password) {
+  const data = new Uint8Array(bytes);
+  const task = pdfjsLib.getDocument({ data, password: password || undefined });
+  const doc = await task.promise;
   try {
-    const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-    set(`metadata-title-${key}`, src.getTitle() || '');
-    set(`metadata-author-${key}`, src.getAuthor() || '');
-    set(`metadata-subject-${key}`, src.getSubject() || '');
-    set(`metadata-keywords-${key}`, src.getKeywords() || '');
-  } catch (e) { /* ignore */ }
+    return await fn(doc);
+  } finally {
+    await doc.destroy();
+  }
 }
 
-// ---------- Formatting helpers ----------
+async function renderPageToBlob(page, scale, format, quality) {
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvas, viewport }).promise;
+  return await new Promise((res) => canvas.toBlob(res, format, quality));
+}
+
+// ---------- Formatting & download helpers ----------
 function humanSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -401,12 +317,18 @@ function triggerDownload(blob, name) {
   a.href = url;
   a.download = name;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-  return url;
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+async function downloadAll(blobs) {
+  if (blobs.length === 0) return;
+  if (blobs.length === 1) { triggerDownload(blobs[0].blob, blobs[0].name); return; }
+  const zip = new JSZip();
+  const folder = zip.folder('output');
+  blobs.forEach((b) => folder.file(b.name, b.blob));
+  const zBlob = await zip.generateAsync({ type: 'blob' });
+  triggerDownload(zBlob, 'pdf-toolkit-output.zip');
 }
 
-// Parse a page spec like "1-3,5,7-9" into 0-based unique sorted indices.
-// A blank spec returns all indices.
 function parsePageSpec(spec, total) {
   if (!spec || !spec.trim()) return Array.from({ length: total }, (_, i) => i);
   const set = new Set();
@@ -415,26 +337,20 @@ function parsePageSpec(spec, total) {
     if (!part) return;
     const m = part.match(/^(\d+)(?:\s*-\s*(\d+))?$/);
     if (m) {
-      const a = Number(m[1]);
-      const b = m[2] === undefined ? a : Number(m[2]);
-      for (let i = Math.min(a, b); i <= Math.max(a, b); i++) {
-        if (i >= 1 && i <= total) set.add(i - 1);
-      }
+      const a = Number(m[1]), b = m[2] === undefined ? a : Number(m[2]);
+      for (let i = Math.min(a, b); i <= Math.max(a, b); i++) if (i >= 1 && i <= total) set.add(i - 1);
     }
   });
-  return [...set].sort((x, y) => x - y);
+  return [...set].sort((a, b) => a - b);
+}
+async function clonePagesToNew(source, indices) {
+  const out = await PDFDocument.create();
+  const pages = await out.copyPages(source, indices);
+  pages.forEach((p) => out.addPage(p));
+  return out;
 }
 
-function clonePagesToNew(source, indices) {
-  return PDFDocument.create().then((out) =>
-    out.copyPages(source, indices).then((pages) => {
-      pages.forEach((p) => out.addPage(p));
-      return out;
-    })
-  );
-}
-
-// ---------- Core tool logic ----------
+// ---------- Tool implementations ----------
 async function mergePDFs(list) {
   const out = await PDFDocument.create();
   for (const f of list) {
@@ -448,32 +364,29 @@ async function mergePDFs(list) {
 async function splitPDF(file, mode, from, to) {
   const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
   const total = src.getPageCount();
+  const base = file.name.replace('.pdf', '');
   if (mode === 'all') {
-    const blobs = [];
+    const out = [];
     for (let i = 0; i < total; i++) {
       const d = await PDFDocument.create();
       const [p] = await d.copyPages(src, [i]);
       d.addPage(p);
-      blobs.push({ blob: new Blob([await d.save()], { type: 'application/pdf' }), name: `${file.name.replace('.pdf', '')}-page-${i + 1}.pdf` });
+      out.push({ blob: new Blob([await d.save()], { type: 'application/pdf' }), name: `${base}-page-${i + 1}.pdf` });
     }
-    return blobs;
+    return out;
   }
-  const fromP = Number(from) || 1;
-  const toP = Number(to) || total;
-  const pages = [];
-  for (let i = fromP; i <= toP; i++) pages.push(i - 1);
-  const d = await PDFDocument.create();
-  const cp = await d.copyPages(src, pages.filter((i) => i >= 0 && i < total));
-  cp.forEach((p) => d.addPage(p));
-  return [{ blob: new Blob([await d.save()], { type: 'application/pdf' }), name: `${file.name.replace('.pdf', '')}-range-${fromP}-${toP}.pdf` }];
+  const fromP = Number(from) || 1, toP = Number(to) || total;
+  const idx = [];
+  for (let i = fromP; i <= toP; i++) if (i >= 1 && i <= total) idx.push(i - 1);
+  const d = await clonePagesToNew(src, idx);
+  return [{ blob: new Blob([await d.save()], { type: 'application/pdf' }), name: `${base}-range-${fromP}-${toP}.pdf` }];
 }
 
 async function rotatePDF(file, angle, spec) {
   const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-  const total = src.getPageCount();
-  const indices = parsePageSpec(spec, total);
-  if (indices.length === 0) throw new Error('No valid pages selected.');
-  indices.forEach((i) => src.getPage(i).setRotation(degrees(Number(angle) || 90)));
+  const idx = parsePageSpec(spec, src.getPageCount());
+  if (!idx.length) throw new Error('No valid pages selected.');
+  idx.forEach((i) => src.getPage(i).setRotation(degrees(Number(angle) || 90)));
   return src.save();
 }
 
@@ -484,31 +397,63 @@ async function reorderPDF(file, action) {
   if (action === 'reverse') order.reverse();
   else if (action === 'first') order = order.slice(1).concat(order[0]);
   else if (action === 'last') order = [order[total - 1]].concat(order.slice(0, total - 1));
-  const out = await PDFDocument.create();
-  const pages = await out.copyPages(src, order);
-  pages.forEach((p) => out.addPage(p));
+  const out = await clonePagesToNew(src, order);
   return out.save();
 }
 
-async function extractPDFPages(file, spec) {
+async function extractPages(file, spec) {
   const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-  const indices = parsePageSpec(spec, src.getPageCount());
-  if (indices.length === 0) throw new Error('No valid pages to extract.');
-  const out = await clonePagesToNew(src, indices);
+  const idx = parsePageSpec(spec, src.getPageCount());
+  if (!idx.length) throw new Error('No valid pages to extract.');
+  const out = await clonePagesToNew(src, idx);
   return out.save();
 }
 
-async function deletePDFPages(file, pagesToDelete) {
+async function deletePages(file, delStr) {
   const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
   const total = src.getPageCount();
-  const toDelete = new Set(pagesToDelete.map((p) => p - 1).filter((i) => i >= 0 && i < total));
-  const keepIndices = [];
-  for (let i = 0; i < total; i++) {
-    if (!toDelete.has(i)) keepIndices.push(i);
-  }
-  if (keepIndices.length === total) throw new Error('No valid pages to delete.');
-  const out = await clonePagesToNew(src, keepIndices);
+  const toDelete = new Set(delStr.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n)).map((p) => p - 1).filter((i) => i >= 0 && i < total));
+  if (toDelete.size === 0) throw new Error('Enter valid page numbers to delete.');
+  const keep = [];
+  for (let i = 0; i < total; i++) if (!toDelete.has(i)) keep.push(i);
+  const out = await clonePagesToNew(src, keep);
   return out.save();
+}
+
+async function insertBlank(file, count, after) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const afterIdx = Math.min(Math.max(Number(after) || 1, 1), total) - 1;
+  const n = Math.max(Number(count) || 1, 1);
+  for (let i = 0; i < n; i++) src.insertPage(afterIdx + 1 + i, [595.28, 841.89]);
+  return src.save();
+}
+
+async function duplicatePages(file, spec, copies) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const idx = parsePageSpec(spec, total);
+  const n = Math.max(Number(copies) || 1, 1);
+  const out = await PDFDocument.create();
+  for (let i = 0; i < total; i++) {
+    const [pg] = await out.copyPages(src, [i]);
+    out.addPage(pg);
+    if (idx.includes(i)) for (let c = 0; c < n; c++) { const [d] = await out.copyPages(src, [i]); out.addPage(d); }
+  }
+  return out.save();
+}
+
+async function cropPDF(file, m) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  src.getPages().forEach((page) => {
+    const box = page.getMediaBox();
+    const l = Math.min(Number(m.left) || 0, box.width / 2 - 1);
+    const r = Math.min(Number(m.right) || 0, box.width / 2 - 1);
+    const t = Math.min(Number(m.top) || 0, box.height / 2 - 1);
+    const b = Math.min(Number(m.bottom) || 0, box.height / 2 - 1);
+    page.setCropBox(box.x + l, box.y + b, box.width - l - r, box.height - t - b);
+  });
+  return src.save();
 }
 
 async function watermarkPDF(file, text, opacity, size) {
@@ -516,132 +461,118 @@ async function watermarkPDF(file, text, opacity, size) {
   const helv = await src.embedFont(StandardFonts.HelveticaBold);
   src.getPages().forEach((page) => {
     const { width, height } = page.getSize();
-    const op = Number(opacity) || 0.3;
-    const font = Number(size) || 60;
-    page.drawText(text, {
-      x: width / 2 - helv.widthOfTextAtSize(text, font) / 2,
-      y: height / 2 - font / 2,
-      size: font,
-      font: helv,
-      color: rgb(0.55, 0.55, 0.55),
-      opacity: op,
-    });
+    const op = Number(opacity) || 0.3, font = Number(size) || 60;
+    page.drawText(text, { x: width / 2 - helv.widthOfTextAtSize(text, font) / 2, y: height / 2 - font / 2, size: font, font: helv, color: rgb(0.4, 0.4, 0.4), opacity: op });
   });
   return src.save();
 }
 
-async function addPageNumbers(file, start, pos) {
+async function pageNumbersPDF(file, start, pos) {
   const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
   const helv = await src.embedFont(StandardFonts.Helvetica);
   const pages = src.getPages();
-  const startNum = Number(start) || 1;
+  const num = Number(start) || 1;
   pages.forEach((page, i) => {
-    const { width, height } = page.getSize();
-    const num = startNum + i;
-    const text = `${num} / ${startNum + pages.length - 1}`;
-    const size = 10;
-    const x = pos === 'bottom-right' ? width - helv.widthOfTextAtSize(text, size) - 40 : width / 2 - helv.widthOfTextAtSize(text, size) / 2;
-    page.drawText(text, {
-      x,
-      y: 24,
-      size,
-      font: helv,
-      color: rgb(0.4, 0.4, 0.4),
-    });
+    const { width } = page.getSize();
+    const t = `${num + i} / ${num + pages.length - 1}`;
+    const x = pos === 'bottom-right' ? width - helv.widthOfTextAtSize(t, 10) - 40 : width / 2 - helv.widthOfTextAtSize(t, 10) / 2;
+    page.drawText(t, { x, y: 24, size: 10, font: helv, color: rgb(0.4, 0.4, 0.4) });
   });
   return src.save();
 }
 
-async function imagesToPDF(list) {
-  const out = await PDFDocument.create();
-  const pageSize = 595.28;
-  for (const f of list) {
-    const bytes = await f.arrayBuffer();
-    let img;
-    if (f.type === 'image/png') img = await out.embedPng(bytes);
-    else img = await out.embedJpg(bytes);
-    const scale = Math.min(pageSize / img.width, pageSize / img.height);
-    const w = img.width * scale;
-    const h = img.height * scale;
-    const page = out.addPage([pageSize, pageSize]);
-    page.drawImage(img, {
-      x: (pageSize - w) / 2,
-      y: (pageSize - h) / 2,
-      width: w,
-      height: h,
-    });
-  }
-  return out.save();
-}
-
-async function compressImage(file, quality, maxWidth) {
-  const out = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: Number(maxWidth) || 1920, useWebWorker: true, initialQuality: Number(quality) || 0.7 });
-  return { blob: out, name: file.name.replace(/\.[^.]+$/, '') + '-compressed.' + (out.type.split('/')[1] || 'jpg') };
-}
-
-async function convertImage(file, format) {
-  const bitmap = await createImageBitmap(file);
-  const canvas = document.createElement('canvas');
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  canvas.getContext('2d').drawImage(bitmap, 0, 0);
-  const ext = format.split('/')[1];
-  const blob = await new Promise((res) => canvas.toBlob(res, format, 0.9));
-  return { blob, name: file.name.replace(/\.[^.]+$/, '') + '.' + ext };
-}
-
-async function pdfInfo(file) {
-  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-  return {
-    pages: src.getPageCount(),
-    title: src.getTitle() || '—',
-    author: src.getAuthor() || '—',
-    subject: src.getSubject() || '—',
-    keywords: src.getKeywords() || '—',
-    creator: src.getCreator() || '—',
-    size: file.size,
-  };
-}
-
-async function addBlankPages(file, count, after) {
-  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-  const total = src.getPageCount();
-  const afterIdx = Math.min(Math.max(Number(after) || 1, 1), total) - 1;
-  const n = Math.max(Number(count) || 1, 1);
-  for (let i = 0; i < n; i++) {
-    src.insertPage(afterIdx + 1 + i, [595.28, 841.89]);
-  }
-  return src.save();
-}
-
-async function duplicatePagesT(file, spec, copies) {
-  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-  const total = src.getPageCount();
-  const indices = parsePageSpec(spec, total);
-  if (indices.length === 0) throw new Error('No valid pages to duplicate.');
-  const n = Math.max(Number(copies) || 1, 1);
-  const out = await PDFDocument.create();
-  for (let i = 0; i < total; i++) {
-    const [page] = await out.copyPages(src, [i]);
-    out.addPage(page);
-    if (indices.includes(i)) {
-      for (let c = 0; c < n; c++) {
-        const [dup] = await out.copyPages(src, [i]);
-        out.addPage(dup);
+async function flipPDF(file, dir) {
+  return withPdfjs(await file.arrayBuffer(), async (doc) => {
+    const out = await PDFDocument.create();
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvas, viewport }).promise;
+      const ctx = canvas.getContext('2d');
+      if (dir === 'horizontal') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      } else {
+        ctx.translate(0, canvas.height);
+        ctx.scale(1, -1);
       }
+      ctx.drawImage(canvas, 0, 0);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
+      const img = await out.embedJpg(await blob.arrayBuffer());
+      const pw = out.addPage([viewport.width / 1.5, viewport.height / 1.5]);
+      pw.drawImage(img, { x: 0, y: 0, width: viewport.width / 1.5, height: viewport.height / 1.5 });
+    }
+    return out.save();
+  });
+}
+
+async function resizePDF(file, size, margin) {
+  const [W, H] = standardWH(size);
+  const m = Number(margin) || 0;
+  return withPdfjs(await file.arrayBuffer(), async (doc) => {
+    const out = await PDFDocument.create();
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const vp = page.getViewport({ scale: 1 });
+      const scale = Math.min((W - 2 * m) / vp.width, (H - 2 * m) / vp.height);
+      const cw = Math.max(1, Math.round(vp.width * scale * 1.5));
+      const ch = Math.max(1, Math.round(vp.height * scale * 1.5));
+      const canvas = document.createElement('canvas');
+      canvas.width = cw; canvas.height = ch;
+      await page.render({ canvas, viewport: page.getViewport({ scale: 1.5 }) }).promise;
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = W; outCanvas.height = H;
+      const ctx = outCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(canvas, Math.round(m * 1.5), Math.round(m * 1.5), Math.round((W - 2 * m) * 1.5), Math.round((H - 2 * m) * 1.5));
+      const blob = await new Promise((res) => outCanvas.toBlob(res, 'image/jpeg', 0.9));
+      const img = await out.embedJpg(await blob.arrayBuffer());
+      const pw = out.addPage([W, H]);
+      pw.drawImage(img, { x: 0, y: 0, width: W, height: H });
+    }
+    return out.save();
+  });
+}
+
+async function nupPDF(file, perSheet) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const total = src.getPageCount();
+  const cols = perSheet >= 6 ? 3 : 2;
+  const rows = Math.ceil(perSheet / cols);
+  const out = await PDFDocument.create();
+  const W = 595.28, H = 841.89;
+  const pad = 10;
+  const cellW = (W - pad * (cols + 1)) / cols;
+  const cellH = (H - pad * (rows + 1)) / rows;
+  for (let s = 0; s < Math.ceil(total / perSheet); s++) {
+    const page = out.addPage([W, H]);
+    for (let i = 0; i < perSheet; i++) {
+      const srcIdx = s * perSheet + i;
+      if (srcIdx >= total) break;
+      const orig = src.getPage(srcIdx);
+      const box = orig.getMediaBox();
+      const scale = Math.min(cellW / box.width, cellH / box.height);
+      const w = box.width * scale, h = box.height * scale;
+      const col = i % cols, row = Math.floor(i / cols);
+      const x = pad + col * (cellW + pad) + (cellW - w) / 2;
+      const y = H - pad - (row + 1) * (cellH + pad) + (cellH - h) / 2;
+      const embedded = await out.embedPage(orig);
+      page.drawPage(embedded, { x, y, width: w, height: h });
     }
   }
   return out.save();
 }
 
-// A page is considered blank if it has no meaningful content streams.
 async function removeBlankPages(file) {
   const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
   const total = src.getPageCount();
   const keep = [];
   for (let i = 0; i < total; i++) {
     const contents = src.getPage(i).node.Contents();
-    if (!contents) continue; // no content -> blank page, skip
+    if (!contents) continue;
     let size = 0;
     let entries = typeof contents.asArray === 'function' ? contents.asArray() : [contents];
     for (const e of entries) {
@@ -659,6 +590,180 @@ async function removeBlankPages(file) {
   return { data: await out.save(), removed: total - keep.length, remaining: keep.length };
 }
 
+async function compressPDF(file, quality, maxDim) {
+  return withPdfjs(await file.arrayBuffer(), async (doc) => {
+    const out = await PDFDocument.create();
+    const scale = Number(maxDim) / 595.28 || 2;
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const blob = await renderPageToBlob(page, scale, 'image/jpeg', Number(quality) || 0.6);
+      const img = await out.embedJpg(await blob.arrayBuffer());
+      const vp = page.getViewport({ scale: 1 });
+      const pw = out.addPage([vp.width, vp.height]);
+      pw.drawImage(img, { x: 0, y: 0, width: vp.width, height: vp.height });
+    }
+    return out.save();
+  });
+}
+
+async function grayscalePDF(file, method) {
+  return withPdfjs(await file.arrayBuffer(), async (doc) => {
+    const out = await PDFDocument.create();
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvas, viewport }).promise;
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imageData.data;
+      for (let p = 0; p < d.length; p += 4) {
+        const v = method === 'average' ? (d[p] + d[p + 1] + d[p + 2]) / 3 : 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+        d[p] = d[p + 1] = d[p + 2] = v;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
+      const img = await out.embedJpg(await blob.arrayBuffer());
+      const pw = out.addPage([viewport.width / 1.5, viewport.height / 1.5]);
+      pw.drawImage(img, { x: 0, y: 0, width: viewport.width / 1.5, height: viewport.height / 1.5 });
+    }
+    return out.save();
+  });
+}
+
+async function flattenPDF(file) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  src.getForm().flatten();
+  return src.save();
+}
+
+async function pdfToImages(file, format, res, spec) {
+  return withPdfjs(await file.arrayBuffer(), async (doc) => {
+    const base = file.name.replace(/\.pdf$/i, '');
+    const scale = Number(res) || 2;
+    const idx = parsePageSpec(spec, doc.numPages);
+    const blobs = [];
+    for (const i of idx) {
+      const page = await doc.getPage(i + 1);
+      const blob = await renderPageToBlob(page, scale, format, 0.9);
+      const ext = format === 'image/png' ? 'png' : 'jpg';
+      blobs.push({ blob, name: `${base}-page-${i + 1}.${ext}` });
+    }
+    return blobs;
+  });
+}
+
+async function extractImages(file) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const base = file.name.replace(/\.pdf$/i, '');
+  const out = [];
+  const seen = new Set();
+  const promoted = [];
+  const pages = src.getPages();
+  for (let pi = 0; pi < pages.length; pi++) {
+    const res = pages[pi].node.Resources();
+    if (!res) continue;
+    const xObj = res.get(asName('XObject'));
+    if (!xObj) continue;
+    const entries = xObj.entries ? xObj.entries() : [];
+    for (const [, xRef] of entries) {
+      const xo = src.context.lookup(xRef);
+      if (!xo || typeof xo.get !== 'function') continue;
+      const sub = xo.get(asName('Subtype'));
+      if (!sub || sub.toString() !== '/Image') continue;
+      const width = (xo.get(asName('Width')) || {}).valueOf() || 0;
+      const height = (xo.get(asName('Height')) || {}).valueOf() || 0;
+      if (!width || !height) continue;
+      const filter = (xo.get(asName('Filter')) || '').toString();
+      const bpc = (xo.get(asName('BitsPerComponent')) || {}).valueOf() || 8;
+      let csNode = xo.get(asName('ColorSpace'));
+      const color = csNode ? csNode.toString() : '/DeviceRGB';
+      if (color.startsWith('[')) continue; // ICC-based -> complex, skip
+      let data;
+      if (typeof xo.getContents === 'function') data = xo.getContents();
+      if (!data || !data.length) continue;
+      const key = `${pi}-${xo.ref && xo.ref.toString() ? xo.ref.toString() : ''}-${width}x${height}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (filter === '/DCTDecode') {
+        out.push({ blob: new Blob([data], { type: 'image/jpeg' }), name: `${base}-image-${out.length + 1}.jpg` });
+      } else if (filter === '/JPXDecode') {
+        out.push({ blob: new Blob([data], { type: 'image/jpeg2000' }), name: `${base}-image-${out.length + 1}.jp2` });
+      } else {
+        promoted.push(decodeRaster(data, width, height, bpc, color).then((blob) =>
+          out.push({ blob, name: `${base}-image-${out.length + 1}.png` })
+        ));
+      }
+    }
+  }
+  await Promise.all(promoted);
+  if (!out.length) throw new Error('No images found in this PDF.');
+  return out;
+}
+
+function asName(s) { return { toString: () => s }; }
+
+function decodeRaster(data, width, height, bpc, color) {
+  const channels = color === '/DeviceGray' ? 1 : color === '/DeviceCMYK' ? 4 : 3;
+  const bits = Number(bpc) || 8;
+  const bytesPerPixel = (channels * bits) / 8;
+  const rowBytes = Math.ceil((width * channels * bits) / 8);
+  const png = document.createElement('canvas');
+  png.width = width; png.height = height;
+  const ctx = png.getContext('2d');
+  const img = ctx.createImageData(width, height);
+  const max = (1 << bits) - 1;
+  for (let y = 0; y < height; y++) {
+    const rowOff = y * rowBytes;
+    for (let x = 0; x < width; x++) {
+      const pxOff = rowOff + Math.floor((x * channels * bits) / 8);
+      const o = (y * width + x) * 4;
+      if (channels === 4) {
+        const c = data[pxOff], m = data[pxOff + 1], yy = data[pxOff + 2], k = data[pxOff + 3];
+        img.data[o] = 255 * (1 - c / max) * (1 - k / max);
+        img.data[o + 1] = 255 * (1 - m / max) * (1 - k / max);
+        img.data[o + 2] = 255 * (1 - yy / max) * (1 - k / max);
+      } else if (channels === 1) {
+        const v = Math.round(255 * (data[pxOff] / max));
+        img.data[o] = img.data[o + 1] = img.data[o + 2] = v;
+      } else {
+        img.data[o] = data[pxOff];
+        img.data[o + 1] = data[pxOff + 1];
+        img.data[o + 2] = data[pxOff + 2];
+      }
+      img.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return new Promise((res) => png.toBlob((b) => res(new Blob([b], { type: 'image/png' })), 'image/png'));
+}
+
+async function embedImageSmart(out, bytes) {
+  const b = new Uint8Array(bytes);
+  // Detect real format from magic bytes regardless of content-type
+  const isPng = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+  const isJpg = b[0] === 0xff && b[1] === 0xd8;
+  if (isPng) return out.embedPng(bytes);
+  if (isJpg) return out.embedJpg(bytes);
+  // unknown -> try jpg then png
+  try { return await out.embedJpg(bytes); } catch { return out.embedPng(bytes); }
+}
+
+async function imagesToPDF(list) {
+  const out = await PDFDocument.create();
+  const P = 595.28;
+  for (const f of list) {
+    const bytes = await f.arrayBuffer();
+    const img = await embedImageSmart(out, bytes);
+    const scale = Math.min(P / img.width, P / img.height);
+    const w = img.width * scale, h = img.height * scale;
+    const page = out.addPage([P, P]);
+    page.drawImage(img, { x: (P - w) / 2, y: (P - h) / 2, width: w, height: h });
+  }
+  return out.save();
+}
+
 async function txtToPdf(file, sizeKey, maxWidth) {
   const text = await file.text();
   const out = await PDFDocument.create();
@@ -671,10 +776,10 @@ async function txtToPdf(file, sizeKey, maxWidth) {
   const lines = text.replace(/\r\n/g, '\n').split('\n');
   let page = out.addPage([width, height]);
   let y = height - 56;
-  function drawLine(l) { page.drawText(l.slice(0, charsPerLine), { x: 48, y, size: 12, font: helv, color: rgb(0.1, 0.1, 0.1) }); y -= lineHeight; }
-  for (let li = 0; li < lines.length; li++) {
+  function draw(l) { page.drawText(l.slice(0, charsPerLine), { x: 48, y, size: 12, font: helv, color: rgb(0.1, 0.1, 0.1) }); y -= lineHeight; }
+  for (const line of lines) {
     if (y < 56) { page = out.addPage([width, height]); y = height - 56; }
-    drawLine(lines[li].length ? lines[li] : ' ');
+    draw(line.length ? line : ' ');
   }
   return out.save();
 }
@@ -688,169 +793,220 @@ async function editMetadata(file, fields) {
   return src.save();
 }
 
-async function cropPDF(file, m) {
-  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
-  src.getPages().forEach((page) => {
-    const box = page.getMediaBox();
-    const l = Math.min(Number(m.left) || 0, box.width / 2 - 1);
-    const r = Math.min(Number(m.right) || 0, box.width / 2 - 1);
-    const t = Math.min(Number(m.top) || 0, box.height / 2 - 1);
-    const b = Math.min(Number(m.bottom) || 0, box.height / 2 - 1);
-    page.setCropBox(box.x + l, box.y + b, box.width - l - r, box.height - t - b);
+async function prefillMetadata(file) {
+  try {
+    const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+    const set = (id, v) => { const e = el(id); if (e) e.value = v || ''; };
+    set('metaTitle', src.getTitle() || '');
+    set('metaAuthor', src.getAuthor() || '');
+    set('metaSubject', src.getSubject() || '');
+    set('metaKeywords', (src.getKeywords() || []).join(', '));
+  } catch (e) {}
+}
+
+async function protectPDF(file, password, perms) {
+  const bytes = await file.arrayBuffer();
+  const src = await CantoDoc.load(bytes, { ignoreEncryption: true });
+  src.encrypt({
+    userPassword: password,
+    ownerPassword: password,
+    permissions: {
+      printing: perms.print ? 'highResolution' : false,
+      copying: perms.copy,
+      modifying: perms.mod,
+    },
   });
   return src.save();
 }
 
+async function unlockPDF(file, password) {
+  const bytes = await file.arrayBuffer();
+  const src = await CantoDoc.load(bytes, password ? { password } : undefined);
+  const saved = await src.save();
+  return saved;
+}
+
+async function compressImage(file, quality, maxWidth) {
+  const out = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: Number(maxWidth) || 1920, useWebWorker: true, initialQuality: Number(quality) || 0.7 });
+  return { blob: out, name: file.name.replace(/\.[^.]+$/, '') + '-compressed.' + (out.type.split('/')[1] || 'jpg') };
+}
+
+async function convertImage(file, format) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width; canvas.height = bitmap.height;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0);
+  const ext = format.split('/')[1];
+  const blob = await new Promise((res) => canvas.toBlob(res, format, 0.9));
+  return { blob, name: file.name.replace(/\.[^.]+$/, '') + '.' + ext };
+}
+
+async function pdfInfo(file) {
+  const src = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  return { pages: src.getPageCount(), title: src.getTitle() || '—', author: src.getAuthor() || '—', subject: src.getSubject() || '—', keywords: (src.getKeywords() || []).join(', ') || '—', creator: src.getCreator() || '—', size: file.size };
+}
+
 // ---------- Runner ----------
-async function runTool(key) {
-  const list = files[key] || [];
-  resultEl.innerHTML = '<p>Processing…</p>';
+const baseName = (f) => f.name.replace(/\.pdf$/i, '');
+async function runTool() {
+  const t = TOOLS[currentTool];
+  result.innerHTML = '<div class="result-box">Processing… please wait.</div>';
   try {
-    let outItems = [];
-    if (key === 'merge') {
-      if (list.length < 2) throw new Error('Add at least 2 PDFs to merge.');
-      const data = await mergePDFs(list);
+    let items = [];
+    const v = (id) => { const e = el(id); return e ? e.value : ''; };
+    const onePDF = files[0];
+    if (currentTool === 'merge') {
+      const data = await mergePDFs(files);
       triggerDownload(new Blob([data], { type: 'application/pdf' }), 'merged.pdf');
-      outItems = ['Merged ' + list.length + ' PDFs into one document.'];
-    } else if (key === 'split') {
-      const mode = document.getElementById(`split-mode-${key}`).value;
-      const from = document.getElementById(`split-from-${key}`).value;
-      const to = document.getElementById(`split-to-${key}`).value;
-      const results = await splitPDF(list[0], mode, from, to);
-      results.forEach((r) => triggerDownload(r.blob, r.name));
-      outItems = ['Created ' + results.length + ' file(s).'];
-    } else if (key === 'rotate') {
-      const angle = document.getElementById(`rotate-angle-${key}`).value;
-      const spec = document.getElementById(`rotate-pages-${key}`).value;
-      const data = await rotatePDF(list[0], angle, spec);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-rotated.pdf');
-      outItems = ['Pages rotated by ' + angle + '°.'];
-    } else if (key === 'reorder') {
-      const action = document.getElementById(`reorder-action-${key}`).value;
-      const data = await reorderPDF(list[0], action);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-reordered.pdf');
-      outItems = ['Page order updated.'];
-    } else if (key === 'extract') {
-      const spec = document.getElementById(`extract-pages-${key}`).value;
-      const data = await extractPDFPages(list[0], spec);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-extracted.pdf');
-      outItems = ['Extracted selected pages into a new PDF.'];
-    } else if (key === 'deletePages') {
-      const input = document.getElementById(`delete-pages-${key}`).value;
-      const pagesToDelete = input.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
-      if (pagesToDelete.length === 0) throw new Error('Enter page numbers to delete, e.g. 2,5,7');
-      const out = await deletePDFPages(list[0], pagesToDelete);
-      triggerDownload(new Blob([out], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-edited.pdf');
-      outItems = ['PDF updated without the selected page(s).'];
-    } else if (key === 'addBlank') {
-      const count = document.getElementById(`addblank-count-${key}`).value;
-      const after = document.getElementById(`addblank-after-${key}`).value;
-      const data = await addBlankPages(list[0], count, after);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-with-blank-pages.pdf');
-      outItems = ['Added blank page(s) after page ' + after + '.'];
-    } else if (key === 'duplicate') {
-      const spec = document.getElementById(`duplicate-pages-${key}`).value;
-      const copies = document.getElementById(`duplicate-copies-${key}`).value;
-      const data = await duplicatePagesT(list[0], spec, copies);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-duplicated.pdf');
-      outItems = ['Duplicated selected page(s).'];
-    } else if (key === 'removeBlank') {
-      const res = await removeBlankPages(list[0]);
-      triggerDownload(new Blob([res.data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-no-blank.pdf');
-      outItems = ['Removed ' + res.removed + ' blank page(s); ' + res.remaining + ' left.'];
-    } else if (key === 'txtToPdf') {
-      const sizeKey = document.getElementById(`txttopdf-size-${key}`).value;
-      const width = document.getElementById(`txttopdf-width-${key}`).value;
-      const data = await txtToPdf(list[0], sizeKey, width);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace(/\.[^.]+$/, '') + '.pdf');
-      outItems = ['Converted text to a PDF.'];
-    } else if (key === 'metadata') {
-      const fields = {
-        title: document.getElementById(`metadata-title-${key}`).value,
-        author: document.getElementById(`metadata-author-${key}`).value,
-        subject: document.getElementById(`metadata-subject-${key}`).value,
-        keywords: document.getElementById(`metadata-keywords-${key}`).value,
-      };
-      const data = await editMetadata(list[0], fields);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-meta.pdf');
-      outItems = ['Metadata updated.'];
-    } else if (key === 'crop') {
-      const m = {
-        top: document.getElementById(`crop-top-${key}`).value,
-        right: document.getElementById(`crop-right-${key}`).value,
-        bottom: document.getElementById(`crop-bottom-${key}`).value,
-        left: document.getElementById(`crop-left-${key}`).value,
-      };
-      const data = await cropPDF(list[0], m);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-cropped.pdf');
-      outItems = ['Pages cropped.'];
-    } else if (key === 'watermark') {
-      const text = document.getElementById(`watermark-text-${key}`).value || 'DRAFT';
-      const opacity = document.getElementById(`watermark-opacity-${key}`).value;
-      const size = document.getElementById(`watermark-size-${key}`).value;
-      const data = await watermarkPDF(list[0], text, opacity, size);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-watermarked.pdf');
-      outItems = ['Watermark "' + text + '" applied to every page.'];
-    } else if (key === 'pageNumbers') {
-      const start = document.getElementById(`pagenum-start-${key}`).value;
-      const pos = document.getElementById(`pagenum-pos-${key}`).value;
-      const data = await addPageNumbers(list[0], start, pos);
-      triggerDownload(new Blob([data], { type: 'application/pdf' }), list[0].name.replace('.pdf', '') + '-numbered.pdf');
-      outItems = ['Page numbers added.'];
-    } else if (key === 'imagesToPdf') {
-      const data = await imagesToPDF(list);
+      items = ['Merged ' + files.length + ' PDFs into one document.'];
+    } else if (currentTool === 'split') {
+      const res = await splitPDF(onePDF, v('split'), v('splitFrom'), v('splitTo'));
+      await downloadAll(res);
+      items = ['Created ' + res.length + ' file(s).'];
+    } else if (currentTool === 'rotate') {
+      const data = await rotatePDF(onePDF, v('rotate'), v('pages'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-rotated.pdf');
+      items = ['Pages rotated by ' + v('rotate') + '°.'];
+    } else if (currentTool === 'reorder') {
+      const data = await reorderPDF(onePDF, v('reorder'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-reordered.pdf');
+      items = ['Page order updated.'];
+    } else if (currentTool === 'extract') {
+      const data = await extractPages(onePDF, v('pages'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-extracted.pdf');
+      items = ['Selected pages extracted.'];
+    } else if (currentTool === 'deletePages') {
+      const data = await deletePages(onePDF, v('delPages'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-edited.pdf');
+      items = ['Selected pages removed.'];
+    } else if (currentTool === 'insertBlank') {
+      const data = await insertBlank(onePDF, v('blankCount'), v('blankAfter'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-with-blank-pages.pdf');
+      items = ['Blank page(s) inserted after page ' + v('blankAfter') + '.'];
+    } else if (currentTool === 'duplicate') {
+      const data = await duplicatePages(onePDF, v('pages'), v('copyCount'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-duplicated.pdf');
+      items = ['Selected pages duplicated.'];
+    } else if (currentTool === 'crop') {
+      const data = await cropPDF(onePDF, { top: v('top'), right: v('right'), bottom: v('bottom'), left: v('left') });
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-cropped.pdf');
+      items = ['Pages cropped.'];
+    } else if (currentTool === 'watermark') {
+      const data = await watermarkPDF(onePDF, v('wmText') || 'DRAFT', v('wmOpacity'), v('wmSize'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-watermarked.pdf');
+      items = ['Watermark "' + v('wmText') + '" applied.'];
+    } else if (currentTool === 'pageNumbers') {
+      const data = await pageNumbersPDF(onePDF, v('pnStart'), v('pnPos'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-numbered.pdf');
+      items = ['Page numbers added.'];
+    } else if (currentTool === 'flip') {
+      const data = await flipPDF(onePDF, v('flip'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-flipped.pdf');
+      items = ['Pages flipped (' + v('flip') + ').'];
+    } else if (currentTool === 'resize') {
+      const data = await resizePDF(onePDF, v('resizeSize'), v('margin'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-resized.pdf');
+      items = ['Pages resized to ' + v('resizeSize') + '.'];
+    } else if (currentTool === 'nup') {
+      const data = await nupPDF(onePDF, Number(v('nup')));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-nup.pdf');
+      items = ['Pages laid out ' + v('nup') + '-per-sheet.'];
+    } else if (currentTool === 'removeBlank') {
+      const res = await removeBlankPages(onePDF);
+      triggerDownload(new Blob([res.data], { type: 'application/pdf' }), baseName(onePDF) + '-no-blank.pdf');
+      items = ['Removed ' + res.removed + ' blank page(s); ' + res.remaining + ' left.'];
+    } else if (currentTool === 'compress') {
+      const data = await compressPDF(onePDF, v('cq'), v('cDim'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-compressed.pdf');
+      items = ['PDF compressed.'];
+    } else if (currentTool === 'grayscale') {
+      const data = await grayscalePDF(onePDF, v('gs'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-grayscale.pdf');
+      items = ['Document converted to grayscale.'];
+    } else if (currentTool === 'flatten') {
+      const data = await flattenPDF(onePDF);
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-flattened.pdf');
+      items = ['Form fields flattened.'];
+    } else if (currentTool === 'pdfToJpg') {
+      const blobs = await pdfToImages(onePDF, v('fmt'), v('pdfRes'), v('pages'));
+      await downloadAll(blobs);
+      items = ['Converted ' + blobs.length + ' page(s) to images.'];
+    } else if (currentTool === 'imagesToPdf') {
+      const data = await imagesToPDF(files);
       triggerDownload(new Blob([data], { type: 'application/pdf' }), 'images.pdf');
-      outItems = ['Converted ' + list.length + ' image(s) into a PDF.'];
-    } else if (key === 'compress') {
-      const quality = document.getElementById(`compress-quality-${key}`).value;
-      const width = document.getElementById(`compress-width-${key}`).value;
+      items = ['Converted ' + files.length + ' image(s) into a PDF.'];
+    } else if (currentTool === 'txtToPdf') {
+      const data = await txtToPdf(onePDF, v('txtSize'), v('txtW'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), onePDF.name.replace(/\.[^.]+$/, '') + '.pdf');
+      items = ['Converted text to PDF.'];
+    } else if (currentTool === 'extractImages') {
+      const res = await extractImages(onePDF);
+      await downloadAll(res);
+      items = ['Extracted ' + res.length + ' image(s).'];
+    } else if (currentTool === 'protect') {
+      const pw = v('pw'), pw2 = v('pw2');
+      if (!pw) throw new Error('Enter a password.');
+      if (pw !== pw2) throw new Error('Passwords do not match.');
+      const data = await protectPDF(onePDF, pw, { print: el('perPrint').checked, copy: el('perCopy').checked, mod: el('perMod').checked });
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-protected.pdf');
+      items = ['PDF protected with a password.'];
+    } else if (currentTool === 'unlock') {
+      const data = await unlockPDF(onePDF, v('pw'));
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-unlocked.pdf');
+      items = ['Password removed. An unrestricted copy was downloaded.'];
+    } else if (currentTool === 'compressImage') {
       const rows = [];
-      for (const f of list) {
-        const out = await compressImage(f, quality, width);
-        triggerDownload(out.blob, out.name);
-        rows.push(out);
+      for (const f of files) {
+        const r = await compressImage(f, v('imgQ'), v('imgW'));
+        triggerDownload(r.blob, r.name);
+        rows.push(r);
       }
-      outItems = rows.map((r) => `${humanSize(r.blob.size)} — ${r.name}`);
-    } else if (key === 'convert') {
-      const fmt = document.getElementById(`convert-format-${key}`).value;
+      items = rows.map((r) => `${humanSize(r.blob.size)} — ${r.name}`);
+    } else if (currentTool === 'convertImage') {
       const rows = [];
-      for (const f of list) {
-        const out = await convertImage(f, fmt);
-        triggerDownload(out.blob, out.name);
-        rows.push(out);
+      for (const f of files) {
+        const r = await convertImage(f, v('imgFmt'));
+        triggerDownload(r.blob, r.name);
+        rows.push(r);
       }
-      outItems = rows.map((r) => `${humanSize(r.blob.size)} — ${r.name}`);
-    } else if (key === 'info') {
-      const info = await pdfInfo(list[0]);
-      outItems = [
-        `<b>Pages:</b> ${info.pages}`,
-        `<b>Size:</b> ${humanSize(info.size)}`,
-        `<b>Title:</b> ${info.title}`,
-        `<b>Author:</b> ${info.author}`,
-        `<b>Subject:</b> ${info.subject}`,
-        `<b>Keywords:</b> ${info.keywords}`,
-        `<b>Creator:</b> ${info.creator}`,
-      ];
+      items = rows.map((r) => `${humanSize(r.blob.size)} — ${r.name}`);
+    } else if (currentTool === 'metadata') {
+      const data = await editMetadata(onePDF, { title: v('metaTitle'), author: v('metaAuthor'), subject: v('metaSubject'), keywords: v('metaKeywords') });
+      triggerDownload(new Blob([data], { type: 'application/pdf' }), baseName(onePDF) + '-meta.pdf');
+      items = ['Metadata updated.'];
+    } else if (currentTool === 'info') {
+      const info = await pdfInfo(onePDF);
+      items = [`<table><tr><th>Pages</th><td>${info.pages}</td></tr><tr><th>Size</th><td>${humanSize(info.size)}</td></tr>` +
+        `<tr><th>Title</th><td>${escapeHTML(info.title)}</td></tr><tr><th>Author</th><td>${escapeHTML(info.author)}</td></tr>` +
+        `<tr><th>Subject</th><td>${escapeHTML(info.subject)}</td></tr><tr><th>Keywords</th><td>${escapeHTML(info.keywords)}</td></tr>` +
+        `<tr><th>Creator</th><td>${escapeHTML(info.creator)}</td></tr></table>`];
     }
-    resultEl.innerHTML =
-      '<div class="result-box"><span class="msg-ok">✅ Done. Downloads started.</span><br/><small>' +
-      outItems.join('<br/>') +
-      '</small></div>';
+    result.innerHTML = `<div class="result-box"><span class="msg-ok">✅ Done. Downloads started.</span><br/><small>${items.join('<br/>')}</small></div>`;
   } catch (e) {
-    resultEl.innerHTML = `<div class="result-box"><span class="msg-err">Error: ${e.message}</span></div>`;
+    result.innerHTML = `<div class="result-box"><span class="msg-err">Error: ${e.message}</span></div>`;
   }
 }
 
 // ---------- Init ----------
-buildPanels();
-Object.keys(TOOLS).forEach(buildControls);
-setupDropzones();
+function setupDropzone() {
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => { if (currentTool) addFiles([...fileInput.files]); fileInput.value = ''; });
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if (currentTool) addFiles([...e.dataTransfer.files]);
+  });
+}
 
-tabsEl.addEventListener('click', (e) => {
-  const btn = e.target.closest('.tab');
-  if (!btn) return;
-  currentTool = btn.dataset.tool;
-  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === btn));
-  document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${currentTool}`));
-  resultEl.innerHTML = '';
+search.addEventListener('input', () => {
+  const act = cats.querySelector('.cat.active');
+  renderGrid(act ? act.dataset.cat : '', search.value);
 });
+el('homeBtn').addEventListener('click', goHome);
+el('backBtn').addEventListener('click', goHome);
+
+renderCats();
+renderGrid();
+setupDropzone();

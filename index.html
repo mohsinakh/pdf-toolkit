@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDF Toolkit — Free PDF & Image Tools Online</title>
-  <meta name="description" content="Free online tools to merge, split, rotate, reorder, extract, delete, watermark, and add page numbers to PDFs, plus images to PDF, image compression and conversion. 100% in your browser — files never leave your device." />
-  <meta name="keywords" content="merge pdf, split pdf, rotate pdf, reorder pdf, extract pages, delete pages, pdf watermark, add page numbers, images to pdf, compress pdf, compress image, convert image, free online pdf tools" />
+  <meta name="description" content="Free online tools to merge, split, rotate, reorder, extract, delete, watermark, compress, protect and convert PDFs, plus image tools. 100% in your browser — files never leave your device." />
+  <meta name="keywords" content="merge pdf, split pdf, rotate pdf, reorder pdf, extract pages, delete pages, pdf watermark, compress pdf, protect pdf, unlock pdf, pdf to jpg, images to pdf, pdf tools" />
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-KXFF75FQPH"></script>
   <script>
@@ -20,60 +20,49 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">🛠️ <span>PDF&nbsp;Toolkit</span></div>
+    <button class="brand" id="homeBtn">🛠️ <span>PDF&nbsp;Toolkit</span></button>
     <div class="badge">100% Free · In Your Browser</div>
   </header>
 
   <main>
-    <section class="hero">
-      <h1>Free PDF &amp; Image Tools</h1>
-      <p>Merge, split, rotate, reorder, crop, watermark and clean up PDFs. Turn TXT and images into PDFs. Your files are processed <strong>entirely on your device</strong> — nothing is uploaded to any server.</p>
+    <section class="hero" id="hero">
+      <h1>Every tool you need to work with PDFs</h1>
+      <p>Merge, split, compress, convert, protect and edit your PDFs — all <strong>on your device</strong>. No uploads, no signup, no watermarks.</p>
+      <input type="search" class="search" id="search" placeholder="Search tools… e.g. compress, rotate, merge" autocomplete="off" />
+      <div class="cats" id="cats"></div>
     </section>
 
-    <nav class="tabs" id="tabs">
-      <button class="tab active" data-tool="merge">Merge PDF</button>
-      <button class="tab" data-tool="split">Split PDF</button>
-      <button class="tab" data-tool="rotate">Rotate PDF</button>
-      <button class="tab" data-tool="reorder">Reorder PDF</button>
-      <button class="tab" data-tool="extract">Extract Pages</button>
-      <button class="tab" data-tool="deletePages">Delete Pages</button>
-      <button class="tab" data-tool="addBlank">Add Blank</button>
-      <button class="tab" data-tool="duplicate">Duplicate</button>
-      <button class="tab" data-tool="removeBlank">Remove Blank</button>
-      <button class="tab" data-tool="crop">Crop PDF</button>
-      <button class="tab" data-tool="watermark">Watermark</button>
-      <button class="tab" data-tool="pageNumbers">Page Numbers</button>
-      <button class="tab" data-tool="txtToPdf">TXT to PDF</button>
-      <button class="tab" data-tool="imagesToPdf">Images to PDF</button>
-      <button class="tab" data-tool="compress">Compress Image</button>
-      <button class="tab" data-tool="convert">Convert Image</button>
-      <button class="tab" data-tool="metadata">Edit Metadata</button>
-      <button class="tab" data-tool="info">PDF Info</button>
-    </nav>
+    <section class="grid" id="grid"></section>
 
-    <section class="card" id="app">
-      <div id="panels"></div>
-      <div id="result"></div>
+    <section class="tool-view" id="toolView" hidden>
+      <button class="back" id="backBtn">← All tools</button>
+      <h2 id="toolTitle"></h2>
+      <p class="desc" id="toolDesc"></p>
+      <div class="dropzone" id="dropzone">
+        <p class="dz-icon" id="dzIcon">📄</p>
+        <p class="dz-label" id="dzLabel">Choose a PDF</p>
+        <p class="dz-hint">or drag &amp; drop here</p>
+        <input type="file" id="fileInput" hidden />
+      </div>
+      <div class="file-list" id="fileList"></div>
+      <div class="controls" id="controls"></div>
+      <div class="result" id="result"></div>
     </section>
 
-    <section class="section">
+    <section class="features" id="features">
       <h2>Why use PDF Toolkit?</h2>
-      <ul class="features">
-        <li>🔒 <strong>Private:</strong> files never leave your device.</li>
-        <li>🛠️ <strong>18 tools:</strong> merge, split, rotate, reorder, extract, delete, add blank, duplicate, remove blank, crop, watermark, page numbers, TXT &amp; images to PDF, compress, convert, metadata &amp; info.</li>
-        <li>⚡ <strong>Fast:</strong> works offline, no waiting for uploads.</li>
-        <li>🆓 <strong>Free:</strong> no signup, no watermarks, unlimited use.</li>
-        <li>🔓 <strong>Open source:</strong> <a href="https://github.com/mohsinakh/pdf-toolkit" target="_blank" rel="noopener" style="color:var(--accent)">read the code</a> — total transparency.</li>
-      </ul>
+      <div class="feature-grid">
+        <div class="feature">🔒 <strong>Private</strong><br/>Files never leave your device.</div>
+        <div class="feature">⚡ <strong>Fast</strong><br/>Works offline, no waiting for uploads.</div>
+        <div class="feature">🆓 <strong>Free</strong><br/>No signup, unlimited use.</div>
+        <div class="feature">🔓 <strong>Open source</strong><br/><a href="https://github.com/mohsinakh/pdf-toolkit" target="_blank" rel="noopener">Read the code</a>.</div>
+      </div>
     </section>
   </main>
 
   <footer>
-    <p>© 2026 PDF Toolkit · Built for your privacy · <a href="privacy.html" style="color:var(--accent);text-decoration:none">Privacy Policy</a></p>
-    <p style="margin-top:8px;font-size:13px;color:var(--muted)">
-      🔓 100% <a href="https://github.com/mohsinakh/pdf-toolkit" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-weight:600">open source</a> —
-      view the code on GitHub to verify your files never leave your device.
-    </p>
+    <p>© 2026 PDF Toolkit · Built for your privacy · <a href="privacy.html">Privacy Policy</a></p>
+    <p style="margin-top:8px;font-size:13px;color:var(--muted)">🔓 100% <a href="https://github.com/mohsinakh/pdf-toolkit" target="_blank" rel="noopener">open source</a> — view the code to verify your files never leave your device.</p>
   </footer>
   <script type="module" src="/src/main.js"></script>
 </body>
