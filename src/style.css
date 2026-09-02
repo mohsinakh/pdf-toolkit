@@ -38,6 +38,11 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 48px; }
 .hero h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; }
 .hero p { color: var(--muted); max-width: 600px; margin: 10px auto 0; font-size: 16px; }
 .hero strong { color: var(--ink); }
+.usp {
+  display: inline-block; margin: 12px auto 0; background: var(--accent-soft);
+  color: var(--accent2); font-weight: 700; font-size: 15px; padding: 8px 16px;
+  border-radius: 30px; border: 1px solid var(--accent);
+}
 
 .search {
   margin-top: 20px; width: 100%; max-width: 480px; padding: 12px 16px;
